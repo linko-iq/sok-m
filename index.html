@@ -72,7 +72,7 @@
   padding:0!important;
 }
 .image-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.image-hidden-input{position:fixed!important;left:-9999px!important;top:-9999px!important;opacity:0!important;width:1px!important;height:1px!important}
+.image-hidden-input{position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important}
 .upload-label{min-height:48px;border-radius:15px;border:1px dashed #12b981;background:#ecfdf3;color:#087443;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;cursor:pointer}
 .image-url-box{display:none!important}
 @media(max-width:620px){
@@ -217,17 +217,16 @@ html,body{width:100%;max-width:100%;overflow-x:hidden!important;touch-action:pan
 .app,.layout,.content,.main,.topbar,.login-page{max-width:100%;overflow-x:hidden;}
 
 
-
-/* LINKO final image containment and stable action buttons */
-.image-preview,.compact-image-preview,.product-img,.branch-photo,.member-avatar{display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important}
-.image-preview img,.compact-image-preview img,.product-img img,.branch-photo img,.member-avatar img{max-width:100%!important;max-height:100%!important;width:auto!important;height:auto!important;object-fit:contain!important;object-position:center center!important;display:block!important;background:#fff!important}
-.image-preview{min-height:220px!important}
-.image-picker .image-actions .btn,.compact-image-picker .image-actions .btn{pointer-events:auto!important;position:relative!important;z-index:2!important}
-.upload-label{pointer-events:auto!important;position:relative!important;z-index:2!important}
-.linko-image-preview-layer{position:fixed;inset:0;z-index:5000;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(10px)}
-.linko-image-preview-card{width:min(94vw,900px);max-height:92vh;background:#fff;border-radius:24px;padding:14px;display:grid;gap:12px;box-shadow:0 30px 90px rgba(0,0,0,.35)}
-.linko-image-preview-card img{max-width:100%;max-height:76vh;width:auto;height:auto;object-fit:contain;justify-self:center;align-self:center;background:#fff;border-radius:16px}
-.linko-image-preview-card .btn{width:100%}
+/* ===== LINKO IMAGE SYSTEM CLEAN FIX - NO CROP ===== */
+.image-preview,.compact-image-preview,.product-img,.branch-photo,.member-avatar{overflow:hidden!important;display:grid!important;place-items:center!important}
+.image-preview img,.compact-image-preview img,.product-img img,.branch-photo img,.member-avatar img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center center!important;display:block!important;background:#fff!important}
+.image-preview{height:min(52vh,360px)!important}
+.compact-image-preview{background:#fff!important}
+.linko-image-preview-layer{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px}
+.linko-image-preview-card{width:min(920px,96vw);height:min(760px,92vh);background:#fff;border-radius:28px;padding:14px;display:grid;grid-template-rows:auto 1fr auto;gap:12px;box-shadow:0 30px 90px rgba(0,0,0,.35)}
+.linko-image-preview-card h3{font-size:20px;font-weight:900;color:#111827;text-align:right}
+.linko-image-preview-card .preview-box{min-height:0;border:1px solid #e4e7ec;border-radius:22px;background:#f8fafc;display:grid;place-items:center;overflow:hidden}
+.linko-image-preview-card img{max-width:100%;max-height:100%;width:auto!important;height:auto!important;object-fit:contain!important;display:block;background:#fff}
 
 </style>
 </head>
@@ -384,13 +383,13 @@ function deleteReq(id){if(confirm('تأكيد حذف الطلب؟')){state.reque
 function clearRejected(){state.requests=state.requests.filter(x=>x.status!=='rejected');log('تنظيف الطلبات','تم حذف الطلبات المرفوضة');save();render()}
 function memberInitial(name){return (name||'ع').trim().slice(0,1).toUpperCase()}
 function members(){let q=($('memSearch')?.value||'');let list=state.members.filter(m=>!q||[m.name,m.phone,m.area,m.code].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>إدارة الأعضاء</h2><p>بحث وتعديل وإيقاف وإضافة رصيد.</p></div><button class="btn mini" onclick="openMember()">+ إضافة عضو</button></div><div class="tools"><input class="input" id="memSearch" oninput="linkoStableSearch(this)" value="${q}" placeholder="بحث بالاسم أو الهاتف أو الرمز"><select><option>كل الحالات</option></select><button class="btn secondary" onclick="render()">بحث</button></div><div class="cards">${list.map(m=>`<div class="member-card"><div class="member-avatar">${m.img?`<img src="${m.img}" alt="${m.name}">`:memberInitial(m.name)}</div><div class="member-info"><h3>${m.name} <span class="status ${cls(m.status)}">${statusText(m.status)}</span></h3><p class="muted">الهاتف: ${m.phone} • المنطقة: ${m.area} • الرمز: ${m.code}</p><h3>الرصيد: ${money(m.balance)}</h3></div><div class="actions-row"><button class="btn mini" onclick="quickWallet(${m.id})">إضافة رصيد</button><button class="btn secondary mini" onclick="openMember(${m.id})">تعديل</button><button class="btn warn mini" onclick="toggleMember(${m.id})">${m.status==='active'?'إيقاف':'تفعيل'}</button><button class="btn danger mini" onclick="deleteMember(${m.id})">حذف</button></div></div>`).join('')}</div></div>`}
-function openMember(id){const m=id?state.members.find(x=>x.id===id):{name:'',phone:'',area:'',code:'',balance:0,status:'active',img:''};const imgSrc=m.img||'';openModal(id?'تعديل عضو':'إضافة عضو',`<div class="form-grid"><div class="field"><label>الاسم</label><input class="input" id="mName" value="${m.name}"></div><div class="field"><label>الهاتف</label><input class="input" id="mPhone" value="${m.phone}"></div><div class="field"><label>المنطقة</label><input class="input" id="mArea" value="${m.area}"></div><div class="field"><label>الرمز</label><input class="input" id="mCode" value="${m.code}"></div><div class="field"><label>الرصيد</label><input class="input" id="mBalance" type="number" value="${m.balance}"></div><div class="field"><label>الحالة</label><select id="mStatus"><option value="active" ${m.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${m.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="mImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة العضو">`:'صورة'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة العضو</label><input class="image-hidden-input" id="mFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'mImg','mImgPreviewBox','صورة')"><input type="hidden" id="mImg" value="${imgSrc}"><label class="upload-label" data-image-pick="mFile" role="button" tabindex="0"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewCompactImage('mImg')">معاينة</button><button type="button" class="btn danger mini" onclick="clearCompactImage('mImg','mImgPreviewBox','صورة')">حذف الصورة</button></div><small class="image-help">صورة صغيرة داخل بطاقة العضو، مرتبة بدون قص أو تشويه.</small></div></div><button class="btn wide" onclick="saveMember(${id||0})">حفظ العضو</button></div>`) }
+function openMember(id){const m=id?state.members.find(x=>x.id===id):{name:'',phone:'',area:'',code:'',balance:0,status:'active',img:''};const imgSrc=m.img||'';openModal(id?'تعديل عضو':'إضافة عضو',`<div class="form-grid"><div class="field"><label>الاسم</label><input class="input" id="mName" value="${m.name}"></div><div class="field"><label>الهاتف</label><input class="input" id="mPhone" value="${m.phone}"></div><div class="field"><label>المنطقة</label><input class="input" id="mArea" value="${m.area}"></div><div class="field"><label>الرمز</label><input class="input" id="mCode" value="${m.code}"></div><div class="field"><label>الرصيد</label><input class="input" id="mBalance" type="number" value="${m.balance}"></div><div class="field"><label>الحالة</label><select id="mStatus"><option value="active" ${m.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${m.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="mImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة العضو">`:'صورة'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة العضو</label><input class="image-hidden-input" id="mFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'mImg','mImgPreviewBox','صورة')"><input type="hidden" id="mImg" value="${imgSrc}"><label class="upload-label" for="mFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn danger mini" onclick="clearCompactImage('mImg','mImgPreviewBox','صورة')">حذف الصورة</button></div><small class="image-help">صورة صغيرة داخل بطاقة العضو، مرتبة بدون قص أو تشويه.</small></div></div><button class="btn wide" onclick="saveMember(${id||0})">حفظ العضو</button></div>`) }
 function saveMember(id){let data={name:mName.value,phone:mPhone.value,area:mArea.value,code:mCode.value,balance:+mBalance.value||0,status:mStatus.value,img:mImg.value};if(!data.name||!data.phone){toast('أكمل الاسم والهاتف');return}if(id){Object.assign(state.members.find(x=>x.id===id),data);log('تعديل عضو','تم تعديل '+data.name)}else{state.members.unshift({id:Date.now(),...data});log('إضافة عضو','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ العضو');render()}
 function toggleMember(id){let m=state.members.find(x=>x.id===id);m.status=m.status==='active'?'stopped':'active';log('تغيير حالة عضو','تم تغيير حالة '+m.name);save();render()}
 function deleteMember(id){if(confirm('تأكيد حذف العضو؟')){let m=state.members.find(x=>x.id===id);state.members=state.members.filter(x=>x.id!==id);log('حذف عضو','تم حذف '+(m?.name||''));save();render()}}
 function products(){let q=($('prodSearch')?.value||'');let list=(state.products||[]).filter(p=>!q||[p.name,p.group,p.branch,p.status].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>إدارة المنتجات</h2><p>هيكل المنتج: اسم، فرع، مجموعة، صورة، حالة، وترتيب.</p></div><button class="btn mini" onclick="openProduct()">+ إضافة منتج</button></div><div class="tools"><input class="input" id="prodSearch" oninput="linkoStableSearch(this)" value="${q}" placeholder="بحث عن منتج"><button class="btn secondary" onclick="render()">فلترة</button></div><div class="cards">${list.map(productCard).join('')}</div></div>`}
 function productCard(p){return `<div class="product-card"><div class="product-img">${p.img?`<img src="${p.img}">`:'<span class="material-symbols-rounded">shopping_cart</span>'}</div><div><h3>${p.name} <span class="status ${cls(p.status)}">${statusText(p.status)}</span></h3><p class="muted">${p.branch}${p.group?' • '+p.group:''} • الترتيب: ${p.order||0}</p></div><div class="actions-row"><button class="btn secondary mini" onclick="openProduct(${p.id})">تعديل</button><button class="btn warn mini" onclick="toggleProduct(${p.id})">الحالة</button><button class="btn danger mini" onclick="deleteProduct(${p.id})">حذف</button></div></div>`}
-function openProduct(id){const p=id?state.products.find(x=>x.id===id):{name:'',branch:'كل الفروع',group:'',status:'available',order:(state.products||[]).length+1,img:''};const imgSrc=p.img||'';openModal(id?'تعديل منتج':'إضافة منتج',`<div class="form-grid"><div class="field"><label>اسم المنتج</label><input class="input" id="pName" value="${p.name}"></div><div class="field"><label>الفرع</label><select id="pBranch"><option ${p.branch==='كل الفروع'?'selected':''}>كل الفروع</option>${state.branches.map(b=>`<option ${p.branch===b.name?'selected':''}>${b.name}</option>`).join('')}</select></div><div class="field"><label>المجموعة</label><input class="input" id="pGroup" value="${p.group||''}"></div><div class="field"><label>الحالة</label><select id="pStatus"><option value="available" ${p.status==='available'?'selected':''}>متوفر</option><option value="unavailable" ${p.status==='unavailable'?'selected':''}>غير متوفر</option></select></div><div class="field"><label>ترتيب المنتج</label><input class="input" id="pOrder" type="number" value="${p.order||1}"></div><div class="image-picker"><div class="image-preview" id="pImgPreviewBox">${imgSrc?`<img id="pImgPreview" src="${imgSrc}">`:`<span id="pImgPlaceholder">صورة المنتج</span>`}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة المنتج</label><input class="input image-url-box" id="pImg" value="${imgSrc}"><input class="image-hidden-input" id="pFile" type="file" accept="image/*" onchange="handleProductImageUpload(event)"><label class="upload-label" data-image-pick="pFile" role="button" tabindex="0"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة من الجهاز</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewProductImage()">معاينة</button><button type="button" class="btn danger mini" onclick="clearProductImage()">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div><button class="btn wide" onclick="saveProduct(${id||0})">حفظ المنتج</button></div>`) }
+function openProduct(id){const p=id?state.products.find(x=>x.id===id):{name:'',branch:'كل الفروع',group:'',status:'available',order:(state.products||[]).length+1,img:''};const imgSrc=p.img||'';openModal(id?'تعديل منتج':'إضافة منتج',`<div class="form-grid"><div class="field"><label>اسم المنتج</label><input class="input" id="pName" value="${p.name}"></div><div class="field"><label>الفرع</label><select id="pBranch"><option ${p.branch==='كل الفروع'?'selected':''}>كل الفروع</option>${state.branches.map(b=>`<option ${p.branch===b.name?'selected':''}>${b.name}</option>`).join('')}</select></div><div class="field"><label>المجموعة</label><input class="input" id="pGroup" value="${p.group||''}"></div><div class="field"><label>الحالة</label><select id="pStatus"><option value="available" ${p.status==='available'?'selected':''}>متوفر</option><option value="unavailable" ${p.status==='unavailable'?'selected':''}>غير متوفر</option></select></div><div class="field"><label>ترتيب المنتج</label><input class="input" id="pOrder" type="number" value="${p.order||1}"></div><div class="image-picker"><div class="image-preview" id="pImgPreviewBox">${imgSrc?`<img id="pImgPreview" src="${imgSrc}">`:`<span id="pImgPlaceholder">صورة المنتج</span>`}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة المنتج</label><input class="input image-url-box" id="pImg" value="${imgSrc}"><input class="image-hidden-input" id="pFile" type="file" accept="image/*" onchange="handleProductImageUpload(event)"><label class="upload-label" for="pFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة من الجهاز</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewProductImage()">معاينة</button><button type="button" class="btn danger mini" onclick="clearProductImage()">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div><button class="btn wide" onclick="saveProduct(${id||0})">حفظ المنتج</button></div>`) }
 function handleProductImageUpload(ev){
  const file=ev.target.files&&ev.target.files[0]; if(!file)return;
  if(!file.type.startsWith('image/')){toast('اختر ملف صورة فقط');return;}
@@ -421,7 +420,7 @@ function saveProduct(id){let data={name:pName.value.trim(),branch:pBranch.value,
 function toggleProduct(id){let p=state.products.find(x=>x.id===id);p.status=p.status==='available'?'unavailable':'available';log('تغيير حالة منتج','تم تغيير حالة '+p.name);save();render()}
 function deleteProduct(id){if(confirm('تأكيد حذف المنتج؟')){let p=state.products.find(x=>x.id===id);state.products=state.products.filter(x=>x.id!==id);log('حذف منتج','تم حذف '+(p?.name||''));save();render()}}
 function branches(){const list=[...state.branches].sort((a,b)=>(a.order||0)-(b.order||0));return `<div class="panel"><div class="panel-head"><div><h2>إدارة الفروع</h2><p>إضافة وتعديل وإيقاف الفروع.</p></div><button class="btn mini" onclick="openBranch()">+ إضافة فرع</button></div><div class="branch-grid">${list.map(b=>`<div class="branch-card"><div class="branch-photo">${b.img?`<img src="${b.img}" alt="${b.name}">`:``}</div><h3>${b.name} <span class="status ${cls(b.status)}">${statusText(b.status)}</span></h3><p class="muted">الترتيب: ${b.order||0}<br>المنتجات: ${state.products.filter(p=>p.branch===b.name||p.branch==='كل الفروع').length}</p><div class="actions-row"><button class="btn secondary mini" onclick="openBranch(${b.id})">تعديل</button><button class="btn warn mini" onclick="toggleBranch(${b.id})">${b.status==='active'?'إيقاف':'تفعيل'}</button><button class="btn danger mini" onclick="deleteBranch(${b.id})">حذف</button></div></div>`).join('')}</div></div>`}
-function openBranch(id){const b=id?state.branches.find(x=>x.id===id):{name:'',area:'قسم السوق',status:'active',img:'',order:(state.branches||[]).length+1};const imgSrc=b.img||'';openModal(id?'تعديل فرع':'إضافة فرع',`<div class="form-grid"><div class="field"><label>اسم الفرع</label><input class="input" id="bName" value="${b.name}"></div><div class="field"><label>ترتيب الفرع</label><input class="input" id="bOrder" type="number" value="${b.order||1}"></div><div class="field"><label>الحالة</label><select id="bStatus"><option value="active" ${b.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${b.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="bImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة الفرع">`:'فرع'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة الفرع</label><input class="image-hidden-input" id="bFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'bImg','bImgPreviewBox','فرع')"><input type="hidden" id="bImg" value="${imgSrc}"><label class="upload-label" data-image-pick="bFile" role="button" tabindex="0"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewCompactImage('bImg')">معاينة</button><button type="button" class="btn danger mini" onclick="clearCompactImage('bImg','bImgPreviewBox','فرع')">حذف الصورة</button></div><small class="image-help">تظهر الصورة أعلى بطاقة الفرع بحجم خفيف ومرتب.</small></div></div><button class="btn wide" onclick="saveBranch(${id||0})">حفظ الفرع</button></div>`) }
+function openBranch(id){const b=id?state.branches.find(x=>x.id===id):{name:'',area:'قسم السوق',status:'active',img:'',order:(state.branches||[]).length+1};const imgSrc=b.img||'';openModal(id?'تعديل فرع':'إضافة فرع',`<div class="form-grid"><div class="field"><label>اسم الفرع</label><input class="input" id="bName" value="${b.name}"></div><div class="field"><label>ترتيب الفرع</label><input class="input" id="bOrder" type="number" value="${b.order||1}"></div><div class="field"><label>الحالة</label><select id="bStatus"><option value="active" ${b.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${b.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="bImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة الفرع">`:'فرع'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة الفرع</label><input class="image-hidden-input" id="bFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'bImg','bImgPreviewBox','فرع')"><input type="hidden" id="bImg" value="${imgSrc}"><label class="upload-label" for="bFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn danger mini" onclick="clearCompactImage('bImg','bImgPreviewBox','فرع')">حذف الصورة</button></div><small class="image-help">تظهر الصورة أعلى بطاقة الفرع بحجم خفيف ومرتب.</small></div></div><button class="btn wide" onclick="saveBranch(${id||0})">حفظ الفرع</button></div>`) }
 function saveBranch(id){let data={name:bName.value,area:'قسم السوق',order:Number(bOrder.value)||1,status:bStatus.value,img:bImg.value};if(!data.name){toast('اكتب اسم الفرع');return}if(id){Object.assign(state.branches.find(x=>x.id===id),data);log('تعديل فرع','تم تعديل '+data.name)}else{state.branches.unshift({id:Date.now(),...data});log('إضافة فرع','تم إضافة '+data.name)}save();closeModal();render()}
 function quickWallet(id){
  const m=state.members.find(x=>x.id===id); if(!m){toast('لم يتم العثور على العضو');return;}
@@ -486,16 +485,16 @@ function closeModal(){$('modal').classList.remove('show')}
   window.render=function(){buildNav();let html=''; if(active==='dashboard')html=dashboard(); if(active==='subscriptions')html=subscriptions(); if(active==='purchaseOrders')html=purchaseOrders(); if(active==='members')html=members(); if(active==='products')html=products(); if(active==='branches')html=branches(); if(active==='reports')html=reports(); if(active==='notifications')html=notifications(); if(active==='logs')html=logs(); if(active==='settings')html=settings(); $('main').innerHTML=html}
   window.products=function(){let q=($('prodSearch')?.value||'');let list=[...(state.products||[])].sort((a,b)=>(a.order||0)-(b.order||0)).filter(p=>!q||[p.name,p.branch,p.group,p.status].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>إدارة المنتجات</h2><p>المنتج مطابق لواجهة الأعضاء: اسم، فرع، مجموعة، صورة، حالة، وترتيب فقط.</p></div><button class="btn mini" onclick="openProduct()">+ إضافة منتج</button></div><div class="tools"><input class="input" id="prodSearch" oninput="linkoStableSearch(this)" value="${esc(q)}" placeholder="بحث عن منتج"><select onchange="prodSearch.value=this.value;linkoStableSearch(prodSearch)"><option value="">كل الفروع</option>${(state.branches||[]).map(b=>`<option value="${esc(b.name)}">${esc(b.name)}</option>`).join('')}</select><button class="btn secondary" onclick="render()">فلترة</button></div><div class="cards">${list.length?list.map(productCard).join(''):'<div class="empty">لا توجد منتجات</div>'}</div></div>`}
   window.productCard=function(p){return `<div class="product-card"><div class="product-img">${p.img?`<img src="${p.img}">`:'<span class="material-symbols-rounded">shopping_cart</span>'}</div><div><h3>${esc(p.name)} <span class="status ${cls(p.status)}">${statusText(p.status)}</span></h3><p class="muted">${esc(p.branch)}${p.group?' • '+esc(p.group):''} • الترتيب: ${p.order||0}</p></div><div class="actions-row"><button class="btn secondary mini" onclick="openProduct(${p.id})">تعديل</button><button class="btn warn mini" onclick="toggleProduct(${p.id})">الحالة</button><button class="btn danger mini" onclick="deleteProduct(${p.id})">حذف</button></div></div>`}
-  window.openProduct=function(id){const p=id?state.products.find(x=>x.id===id):{name:'',branch:state.branches?.[0]?.name||'كل الفروع',group:'',status:'available',order:(state.products||[]).length+1,img:''};const imgSrc=p.img||'';openModal(id?'تعديل منتج':'إضافة منتج',`<div class="form-grid"><div class="field"><label>اسم المنتج</label><input class="input" id="pName" value="${esc(p.name)}"></div><div class="field"><label>الفرع</label><select id="pBranch"><option ${p.branch==='كل الفروع'?'selected':''}>كل الفروع</option>${(state.branches||[]).map(b=>`<option ${p.branch===b.name?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div><div class="field"><label>المجموعة</label><input class="input" id="pGroup" value="${esc(p.group||'')}" placeholder="اختياري"></div><div class="field"><label>الحالة</label><select id="pStatus"><option value="available" ${p.status==='available'?'selected':''}>متوفر</option><option value="unavailable" ${p.status==='unavailable'?'selected':''}>غير متوفر</option></select></div><div class="field"><label>ترتيب المنتج</label><input class="input" id="pOrder" type="number" value="${p.order||1}"></div><div class="image-picker"><div class="image-preview" id="pImgPreviewBox">${imgSrc?`<img id="pImgPreview" src="${imgSrc}">`:`<span id="pImgPlaceholder">صورة المنتج</span>`}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة المنتج</label><input class="input image-url-box" id="pImg" value="${esc(imgSrc)}"><input class="image-hidden-input" id="pFile" type="file" accept="image/*" onchange="handleProductImageUpload(event)"><label class="upload-label" data-image-pick="pFile" role="button" tabindex="0"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة من الجهاز</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewProductImage()">معاينة</button><button type="button" class="btn danger mini" onclick="clearProductImage()">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div><button class="btn wide" onclick="saveProduct(${id||0})">حفظ المنتج</button></div>`) }
+  window.openProduct=function(id){const p=id?state.products.find(x=>x.id===id):{name:'',branch:state.branches?.[0]?.name||'كل الفروع',group:'',status:'available',order:(state.products||[]).length+1,img:''};const imgSrc=p.img||'';openModal(id?'تعديل منتج':'إضافة منتج',`<div class="form-grid"><div class="field"><label>اسم المنتج</label><input class="input" id="pName" value="${esc(p.name)}"></div><div class="field"><label>الفرع</label><select id="pBranch"><option ${p.branch==='كل الفروع'?'selected':''}>كل الفروع</option>${(state.branches||[]).map(b=>`<option ${p.branch===b.name?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div><div class="field"><label>المجموعة</label><input class="input" id="pGroup" value="${esc(p.group||'')}" placeholder="اختياري"></div><div class="field"><label>الحالة</label><select id="pStatus"><option value="available" ${p.status==='available'?'selected':''}>متوفر</option><option value="unavailable" ${p.status==='unavailable'?'selected':''}>غير متوفر</option></select></div><div class="field"><label>ترتيب المنتج</label><input class="input" id="pOrder" type="number" value="${p.order||1}"></div><div class="image-picker"><div class="image-preview" id="pImgPreviewBox">${imgSrc?`<img id="pImgPreview" src="${imgSrc}">`:`<span id="pImgPlaceholder">صورة المنتج</span>`}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة المنتج</label><input class="input image-url-box" id="pImg" value="${esc(imgSrc)}"><input class="image-hidden-input" id="pFile" type="file" accept="image/*" onchange="handleProductImageUpload(event)"><label class="upload-label" for="pFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة من الجهاز</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewProductImage()">معاينة</button><button type="button" class="btn danger mini" onclick="clearProductImage()">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div><button class="btn wide" onclick="saveProduct(${id||0})">حفظ المنتج</button></div>`) }
   window.saveProduct=function(id){let data={name:pName.value.trim(),branch:pBranch.value,group:pGroup.value.trim(),status:pStatus.value,order:Number(pOrder.value)||1,img:pImg.value};if(!data.name){toast('اكتب اسم المنتج');return}if(id){Object.assign(state.products.find(x=>x.id===id),data);log('تعديل منتج','تم تعديل '+data.name)}else{state.products.unshift({id:Date.now(),...data});log('إضافة منتج','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ المنتج');render()}
   window.branches=function(){let list=[...(state.branches||[])].sort((a,b)=>(a.order||0)-(b.order||0));return `<div class="panel"><div class="panel-head"><div><h2>إدارة الفروع</h2><p>كل فرع يحتوي على اسم، أيقونة/صورة، ترتيب، وحالة الظهور.</p></div><button class="btn mini" onclick="openBranch()">+ إضافة فرع</button></div><div class="branch-grid">${list.map(b=>`<div class="branch-card"><div class="branch-photo">${b.img?`<img src="${b.img}" alt="${esc(b.name)}">`:`<span class="material-symbols-rounded">${esc(b.icon||'storefront')}</span>`}</div><h3>${esc(b.name)} <span class="status ${cls(b.status)}">${statusText(b.status)}</span></h3><p class="muted">الأيقونة: ${esc(b.icon||'-')}<br>الترتيب: ${b.order||0}<br>المنتجات: ${(state.products||[]).filter(p=>p.branch===b.name||p.branch==='كل الفروع').length}</p><div class="actions-row"><button class="btn secondary mini" onclick="openBranch(${b.id})">تعديل</button><button class="btn warn mini" onclick="toggleBranch(${b.id})">${b.status==='visible'?'إخفاء':'إظهار'}</button><button class="btn danger mini" onclick="deleteBranch(${b.id})">حذف</button></div></div>`).join('')}</div></div>`}
-  window.openBranch=function(id){const b=id?state.branches.find(x=>x.id===id):{name:'',icon:'storefront',order:(state.branches||[]).length+1,status:'visible',img:''};const imgSrc=b.img||'';openModal(id?'تعديل فرع':'إضافة فرع',`<div class="form-grid"><div class="field"><label>اسم الفرع</label><input class="input" id="bName" value="${esc(b.name)}"></div><div class="field"><label>أيقونة الفرع</label><input class="input" id="bIcon" value="${esc(b.icon||'storefront')}" placeholder="مثال: storefront"></div><div class="field"><label>ترتيب الفرع</label><input class="input" id="bOrder" type="number" value="${b.order||1}"></div><div class="field"><label>حالة الفرع</label><select id="bStatus"><option value="visible" ${b.status==='visible'?'selected':''}>ظاهر</option><option value="hidden" ${b.status==='hidden'?'selected':''}>مخفي</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="bImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة الفرع">`:'فرع'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة الفرع</label><input class="image-hidden-input" id="bFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'bImg','bImgPreviewBox','فرع')"><input type="hidden" id="bImg" value="${esc(imgSrc)}"><label class="upload-label" data-image-pick="bFile" role="button" tabindex="0"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewCompactImage('bImg')">معاينة</button><button type="button" class="btn danger mini" onclick="clearCompactImage('bImg','bImgPreviewBox','فرع')">حذف الصورة</button></div><small class="image-help">يمكن استخدام الصورة أو الأيقونة حسب الحاجة.</small></div></div><button class="btn wide" onclick="saveBranch(${id||0})">حفظ الفرع</button></div>`) }
+  window.openBranch=function(id){const b=id?state.branches.find(x=>x.id===id):{name:'',icon:'storefront',order:(state.branches||[]).length+1,status:'visible',img:''};const imgSrc=b.img||'';openModal(id?'تعديل فرع':'إضافة فرع',`<div class="form-grid"><div class="field"><label>اسم الفرع</label><input class="input" id="bName" value="${esc(b.name)}"></div><div class="field"><label>أيقونة الفرع</label><input class="input" id="bIcon" value="${esc(b.icon||'storefront')}" placeholder="مثال: storefront"></div><div class="field"><label>ترتيب الفرع</label><input class="input" id="bOrder" type="number" value="${b.order||1}"></div><div class="field"><label>حالة الفرع</label><select id="bStatus"><option value="visible" ${b.status==='visible'?'selected':''}>ظاهر</option><option value="hidden" ${b.status==='hidden'?'selected':''}>مخفي</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="bImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة الفرع">`:'فرع'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة الفرع</label><input class="image-hidden-input" id="bFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'bImg','bImgPreviewBox','فرع')"><input type="hidden" id="bImg" value="${esc(imgSrc)}"><label class="upload-label" for="bFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn danger mini" onclick="clearCompactImage('bImg','bImgPreviewBox','فرع')">حذف الصورة</button></div><small class="image-help">يمكن استخدام الصورة أو الأيقونة حسب الحاجة.</small></div></div><button class="btn wide" onclick="saveBranch(${id||0})">حفظ الفرع</button></div>`) }
   window.saveBranch=function(id){let data={name:bName.value.trim(),icon:bIcon.value.trim()||'storefront',order:Number(bOrder.value)||1,status:bStatus.value,img:bImg.value};if(!data.name){toast('اكتب اسم الفرع');return}if(id){Object.assign(state.branches.find(x=>x.id===id),data);log('تعديل فرع','تم تعديل '+data.name)}else{state.branches.push({id:Date.now(),...data});log('إضافة فرع','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ الفرع');render()}
   window.toggleBranch=function(id){let b=state.branches.find(x=>x.id===id);if(!b)return;b.status=b.status==='visible'?'hidden':'visible';log('تغيير حالة فرع','تم تغيير حالة '+b.name);save();render()}
   window.subscriptions=function(){let q=($('reqSearch')?.value||'');let list=(state.requests||[]).filter(r=>!q||[r.name,r.username,r.phone,r.address,r.status].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>طلبات الاشتراك</h2><p>قبول الطلب ينشئ العضو تلقائياً داخل إدارة الأعضاء.</p></div></div><div class="tools"><input class="input" id="reqSearch" oninput="linkoStableSearch(this)" value="${esc(q)}" placeholder="بحث بالاسم أو اسم المستخدم أو الهاتف"><button class="btn secondary" onclick="render()">تحديث</button><button class="btn danger" onclick="clearRejected()">حذف المرفوض</button></div><div class="cards">${list.length?list.map(r=>`<div class="request-card"><h3>${esc(r.name)} <span class="status ${cls(r.status)}">${statusText(r.status)}</span></h3><p class="muted">اسم المستخدم: ${esc(r.username||'-')} • الهاتف: ${esc(r.phone)} • العنوان: ${esc(r.address||'-')} • ${esc(r.date||'')}</p><div class="actions-row"><button class="btn mini" onclick="approveReq(${r.id})">قبول</button><button class="btn warn mini" onclick="rejectReq(${r.id})">رفض</button><button class="btn danger mini" onclick="deleteReq(${r.id})">حذف</button></div></div>`).join(''):'<div class="empty">لا توجد طلبات اشتراك</div>'}</div></div>`}
   window.approveReq=function(id){let r=state.requests.find(x=>x.id===id);if(!r)return;state.members.unshift({id:Date.now(),img:'',name:r.name,username:r.username||'',phone:r.phone,address:r.address||'',balance:0,status:'active',createdAt:new Date().toLocaleDateString('ar-IQ')});state.requests=state.requests.filter(x=>x.id!==id);log('قبول اشتراك','تم قبول طلب '+r.name);save();toast('تم قبول الطلب وإنشاء العضو');render()}
   window.members=function(){let q=($('memSearch')?.value||'');let list=(state.members||[]).filter(m=>!q||[m.name,m.username,m.phone,m.address,m.status].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>إدارة الأعضاء</h2><p>صورة، اسم، اسم مستخدم، هاتف، عنوان، رصيد، حالة، وتاريخ التسجيل.</p></div><button class="btn mini" onclick="openMember()">+ إضافة عضو</button></div><div class="tools"><input class="input" id="memSearch" oninput="linkoStableSearch(this)" value="${esc(q)}" placeholder="بحث بالاسم أو اسم المستخدم أو الهاتف"><select><option>كل الحالات</option></select><button class="btn secondary" onclick="render()">بحث</button></div><div class="cards">${list.map(m=>`<div class="member-card"><div class="member-avatar">${m.img?`<img src="${m.img}" alt="${esc(m.name)}">`:memberInitial(m.name)}</div><div class="member-info"><h3>${esc(m.name)} <span class="status ${cls(m.status)}">${statusText(m.status)}</span></h3><p class="muted">اسم المستخدم: ${esc(m.username||'-')} • الهاتف: ${esc(m.phone)} • العنوان: ${esc(m.address||'-')} • التسجيل: ${esc(m.createdAt||'-')}</p><h3>الرصيد: ${money(m.balance)}</h3></div><div class="actions-row"><button class="btn mini" onclick="quickWallet(${m.id})">إضافة رصيد</button><button class="btn secondary mini" onclick="openMember(${m.id})">تعديل</button><button class="btn warn mini" onclick="toggleMember(${m.id})">${m.status==='active'?'إيقاف':'تفعيل'}</button><button class="btn danger mini" onclick="deleteMember(${m.id})">حذف</button></div></div>`).join('')}</div></div>`}
-  window.openMember=function(id){const m=id?state.members.find(x=>x.id===id):{name:'',username:'',phone:'',address:'',balance:0,status:'active',createdAt:new Date().toLocaleDateString('ar-IQ'),img:''};const imgSrc=m.img||'';openModal(id?'تعديل عضو':'إضافة عضو',`<div class="form-grid"><div class="field"><label>الاسم</label><input class="input" id="mName" value="${esc(m.name)}"></div><div class="field"><label>اسم المستخدم</label><input class="input" id="mUsername" value="${esc(m.username||'')}"></div><div class="field"><label>الهاتف</label><input class="input" id="mPhone" value="${esc(m.phone)}"></div><div class="field"><label>العنوان</label><input class="input" id="mAddress" value="${esc(m.address||'')}"></div><div class="field"><label>الرصيد</label><input class="input" id="mBalance" type="number" value="${m.balance||0}"></div><div class="field"><label>الحالة</label><select id="mStatus"><option value="active" ${m.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${m.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="field"><label>تاريخ التسجيل</label><input class="input" id="mCreatedAt" value="${esc(m.createdAt||'')}"></div><div class="compact-image-picker"><div class="compact-image-preview" id="mImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة">`:'صورة'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة العضو</label><input class="image-hidden-input" id="mFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'mImg','mImgPreviewBox','صورة')"><input type="hidden" id="mImg" value="${esc(imgSrc)}"><label class="upload-label" data-image-pick="mFile" role="button" tabindex="0"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewCompactImage('mImg')">معاينة</button><button type="button" class="btn danger mini" onclick="clearCompactImage('mImg','mImgPreviewBox','صورة')">حذف الصورة</button></div></div></div><button class="btn wide" onclick="saveMember(${id||0})">حفظ العضو</button></div>`) }
+  window.openMember=function(id){const m=id?state.members.find(x=>x.id===id):{name:'',username:'',phone:'',address:'',balance:0,status:'active',createdAt:new Date().toLocaleDateString('ar-IQ'),img:''};const imgSrc=m.img||'';openModal(id?'تعديل عضو':'إضافة عضو',`<div class="form-grid"><div class="field"><label>الاسم</label><input class="input" id="mName" value="${esc(m.name)}"></div><div class="field"><label>اسم المستخدم</label><input class="input" id="mUsername" value="${esc(m.username||'')}"></div><div class="field"><label>الهاتف</label><input class="input" id="mPhone" value="${esc(m.phone)}"></div><div class="field"><label>العنوان</label><input class="input" id="mAddress" value="${esc(m.address||'')}"></div><div class="field"><label>الرصيد</label><input class="input" id="mBalance" type="number" value="${m.balance||0}"></div><div class="field"><label>الحالة</label><select id="mStatus"><option value="active" ${m.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${m.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="field"><label>تاريخ التسجيل</label><input class="input" id="mCreatedAt" value="${esc(m.createdAt||'')}"></div><div class="compact-image-picker"><div class="compact-image-preview" id="mImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة">`:'صورة'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة العضو</label><input class="image-hidden-input" id="mFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'mImg','mImgPreviewBox','صورة')"><input type="hidden" id="mImg" value="${esc(imgSrc)}"><label class="upload-label" for="mFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn danger mini" onclick="clearCompactImage('mImg','mImgPreviewBox','صورة')">حذف الصورة</button></div></div></div><button class="btn wide" onclick="saveMember(${id||0})">حفظ العضو</button></div>`) }
   window.saveMember=function(id){let data={name:mName.value.trim(),username:mUsername.value.trim(),phone:mPhone.value.trim(),address:mAddress.value.trim(),balance:+mBalance.value||0,status:mStatus.value,createdAt:mCreatedAt.value,img:mImg.value};if(!data.name||!data.phone){toast('أكمل الاسم والهاتف');return}if(id){Object.assign(state.members.find(x=>x.id===id),data);log('تعديل عضو','تم تعديل '+data.name)}else{state.members.unshift({id:Date.now(),...data});log('إضافة عضو','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ العضو');render()}
   window.purchaseOrders=function(){importMemberOrders();const now=new Date();const today=todayKey(now);const weekAgo=new Date(now);weekAgo.setDate(now.getDate()-7);const monthAgo=new Date(now);monthAgo.setMonth(now.getMonth()-1);const orders=[...(state.orders||[])].map(normalizeOrder);const todayCount=orders.filter(o=>todayKey(parseDate(o.createdAt||o.date))===today).length;const weekCount=orders.filter(o=>parseDate(o.createdAt||o.date)>=weekAgo).length;const monthCount=orders.filter(o=>parseDate(o.createdAt||o.date)>=monthAgo).length;return `<div class="kpis"><div class="kpi" data-icon="today"><small>طلبات اليوم</small><b>${todayCount}</b></div><div class="kpi" data-icon="date_range"><small>طلبات الأسبوع</small><b>${weekCount}</b></div><div class="kpi" data-icon="calendar_month"><small>طلبات الشهر</small><b>${monthCount}</b></div><div class="kpi" data-icon="receipt_long"><small>إجمالي الطلبات</small><b>${orders.length}</b></div></div><div class="panel"><div class="panel-head"><div><h2>طلبات الشراء</h2><p>الطلبات القادمة من واجهة الأعضاء ومحفوظة محلياً لحين ربط Firebase.</p></div><button class="btn secondary mini" onclick="render()">تحديث</button></div><div class="cards">${orders.length?orders.map(orderCard).join(''):'<div class="empty">لا توجد طلبات شراء حتى الآن</div>'}</div></div>`}
   window.orderCard=function(o){o=normalizeOrder(o,0);const items=o.items||o.products||[];const details=items.map((x,i)=>`<div style="padding:8px 0;border-top:1px dashed var(--line)"><b>${i+1}. ${esc(x.name||'')}</b><p class="muted">الفرع: ${esc(x.branch||o.branch||'-')} • الكمية: ${esc(x.quantity||x.qty||1)}${x.details?' • التفاصيل: '+esc(x.details):''}${x.note?' • ملاحظة: '+esc(x.note):''}${x.restaurant?' • المطعم: '+esc(x.restaurant):''}${x.isSpecial?' • طلب خاص':''}</p></div>`).join('');return `<div class="request-card"><h3>${esc(o.orderNumber)} <span class="status ${cls(o.status)}">${statusText(o.status)}</span></h3><p class="muted">${esc(o.memberName||'-')} • ${esc(o.memberUsername||'-')} • ${esc(o.memberPhone||'-')}<br>العنوان: ${esc(o.memberAddress||'-')}<br>الفرع: ${esc(o.branch||'-')} • ${esc(o.createdAt||o.date||'')}</p><div id="orderDetails_${esc(o.id)}" class="hidden">${details||'<p class="muted">لا توجد تفاصيل منتجات</p>'}${o.specialRequests&&o.specialRequests.length?'<p class="muted">يوجد طلبات خاصة ضمن هذا الطلب.</p>':''}</div><div class="actions-row"><button class="btn secondary mini" onclick="document.getElementById('orderDetails_${esc(o.id)}').classList.toggle('hidden')">مشاهدة التفاصيل</button><select class="input" style="max-width:180px;min-height:38px" onchange="updateOrderStatus('${esc(o.id)}',this.value)">${['جديد','قيد المتابعة','مكتمل','ملغي'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>`}
@@ -679,372 +678,6 @@ window.linkoStableSearch = function(input){
 };
 window.searchRender = window.linkoStableSearch;
 
-
-/* LINKO image upload stable fix: products, branches, members, settings logo */
-(function(){
-  function safeToast(msg){ try{ if(typeof toast==='function') toast(msg); }catch(e){} }
-  function readImageFile(file, cb){
-    if(!file){ return; }
-    if(!String(file.type||'').startsWith('image/')){ safeToast('اختر ملف صورة فقط'); return; }
-    if(file.size > 12 * 1024 * 1024){ safeToast('الصورة كبيرة جداً، اختر صورة أقل من 12MB'); return; }
-    const reader = new FileReader();
-    reader.onload = function(e){ cb(e.target.result); };
-    reader.onerror = function(){ safeToast('تعذر قراءة الصورة'); };
-    reader.readAsDataURL(file);
-  }
-  function setPreview(boxId, data, alt){
-    const box = document.getElementById(boxId);
-    if(box){ box.innerHTML = '<img src="'+data+'" alt="'+(alt||'الصورة')+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#fff;display:block">'; }
-  }
-  function openImagePreview(src){
-    if(!src){ safeToast('لا توجد صورة للمعاينة'); return; }
-    const w = window.open('', '_blank');
-    if(w){
-      w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>معاينة الصورة</title><style>body{margin:0;background:#0b1220;display:grid;place-items:center;min-height:100vh;padding:12px;box-sizing:border-box}img{max-width:96vw;max-height:96vh;object-fit:contain;background:#fff;border-radius:18px;padding:10px;box-sizing:border-box}</style></head><body><img src="'+src+'" alt="معاينة الصورة">
-
-<style id="linko-final-image-stability-css">
-/* تثبيت نظام الصور نهائياً: عرض كامل بدون قص داخل كل أقسام الإدارة */
-.image-preview,
-.compact-image-preview,
-.product-img,
-.branch-photo,
-.member-avatar{
-  overflow:hidden!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:#fff!important;
-}
-.image-preview img,
-.compact-image-preview img,
-.product-img img,
-.branch-photo img,
-.member-avatar img{
-  width:100%!important;
-  height:100%!important;
-  max-width:100%!important;
-  max-height:100%!important;
-  object-fit:contain!important;
-  object-position:center center!important;
-  display:block!important;
-  background:#fff!important;
-  padding:6px!important;
-  border-radius:14px!important;
-}
-.image-preview{height:260px!important;min-height:260px!important;max-height:260px!important;}
-.compact-image-preview{width:96px!important;height:96px!important;min-width:96px!important;}
-.linko-image-preview-layer{position:fixed!important;inset:0!important;z-index:99999!important;background:rgba(2,6,23,.86)!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:16px!important;backdrop-filter:blur(8px)!important;}
-.linko-image-preview-card{width:min(94vw,920px)!important;max-height:92vh!important;background:#fff!important;border-radius:24px!important;padding:14px!important;display:flex!important;flex-direction:column!important;gap:12px!important;box-shadow:0 30px 90px rgba(0,0,0,.38)!important;}
-.linko-image-preview-card img{width:100%!important;height:auto!important;max-width:100%!important;max-height:74vh!important;object-fit:contain!important;background:#fff!important;border-radius:16px!important;display:block!important;}
-.linko-image-preview-card .btn{width:100%!important;}
-</style>
-<script id="linko-final-image-stability-js">
-(function(){
-  'use strict';
-  function byId(id){return document.getElementById(id)}
-  function msg(t){try{typeof toast==='function'?toast(t):alert(t)}catch(e){}}
-  function esc(v){return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-  function putPreview(boxId, src, label){
-    const box=byId(boxId); if(!box) return;
-    if(src){box.innerHTML='<img src="'+esc(src)+'" alt="'+esc(label||'الصورة')+'">'}
-    else{box.textContent=label||'صورة'}
-  }
-  function readImage(file, done){
-    if(!file){msg('لم يتم اختيار صورة');return}
-    if(!/^image\//.test(file.type||'')){msg('اختر ملف صورة فقط');return}
-    const reader=new FileReader();
-    reader.onerror=function(){msg('تعذر قراءة الصورة')};
-    reader.onload=function(){
-      const original=reader.result;
-      const img=new Image();
-      img.onload=function(){
-        try{
-          const maxSide=700;
-          const w=img.naturalWidth||img.width||1, h=img.naturalHeight||img.height||1;
-          const scale=Math.min(1, maxSide/Math.max(w,h));
-          const cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
-          const canvas=document.createElement('canvas'); canvas.width=cw; canvas.height=ch;
-          const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,cw,ch); ctx.drawImage(img,0,0,cw,ch);
-          let data=original;
-          try{data=canvas.toDataURL('image/jpeg',0.72)}catch(e){}
-          done(data);
-        }catch(e){done(original)}
-      };
-      img.onerror=function(){done(original)};
-      img.src=original;
-    };
-    reader.readAsDataURL(file);
-  }
-  function assign(inputId, boxId, file, label){
-    readImage(file,function(src){
-      const inp=byId(inputId); if(inp) inp.value=src;
-      putPreview(boxId,src,label);
-      msg('تم رفع الصورة بنجاح');
-    });
-  }
-  window.pickImageFile=function(id){const f=byId(id); if(!f){msg('زر اختيار الصورة غير جاهز');return} f.value=''; f.click();};
-  window.handleProductImageUpload=function(e){assign('pImg','pImgPreviewBox',e&&e.target&&e.target.files?e.target.files[0]:null,'صورة المنتج')};
-  window.handleCompactImageUpload=function(e,inputId,boxId,label){assign(inputId,boxId,e&&e.target&&e.target.files?e.target.files[0]:null,label||'الصورة')};
-  window.linkoImagePreview=function(src){
-    if(!src){msg('لا توجد صورة للمعاينة');return}
-    const old=byId('linkoImagePreviewLayer'); if(old) old.remove();
-    const layer=document.createElement('div'); layer.id='linkoImagePreviewLayer'; layer.className='linko-image-preview-layer';
-    layer.innerHTML='<div class="linko-image-preview-card"><img src="'+esc(src)+'" alt="معاينة الصورة"><button type="button" class="btn dark" id="linkoCloseImagePreview">إغلاق المعاينة</button></div>';
-    document.body.appendChild(layer);
-    layer.addEventListener('click',function(ev){if(ev.target===layer || ev.target.id==='linkoCloseImagePreview') layer.remove()});
-  };
-  window.previewProductImage=function(){window.linkoImagePreview(byId('pImg')?byId('pImg').value:'')};
-  window.previewProductImageFull=window.previewProductImage;
-  window.previewCompactImage=function(inputId){window.linkoImagePreview(byId(inputId)?byId(inputId).value:'')};
-  window.clearProductImage=function(){const i=byId('pImg'); if(i)i.value=''; const f=byId('pFile'); if(f)f.value=''; putPreview('pImgPreviewBox','', 'صورة المنتج'); msg('تم حذف الصورة')};
-  window.clearCompactImage=function(inputId,boxId,label){const i=byId(inputId); if(i)i.value=''; const f=byId(inputId==='bImg'?'bFile':inputId==='mImg'?'mFile':inputId==='sLogo'?'sLogoFile':''); if(f)f.value=''; putPreview(boxId,'',label||'صورة'); msg('تم حذف الصورة')};
-  document.addEventListener('click',function(e){const b=e.target&&e.target.closest?e.target.closest('[data-image-pick]'):null; if(!b)return; e.preventDefault(); e.stopPropagation(); window.pickImageFile(b.getAttribute('data-image-pick'))},true);
-  document.addEventListener('change',function(e){const t=e.target; if(!t||!t.files||!t.id)return; if(t.id==='pFile')assign('pImg','pImgPreviewBox',t.files[0],'صورة المنتج'); if(t.id==='bFile')assign('bImg','bImgPreviewBox',t.files[0],'صورة الفرع'); if(t.id==='mFile')assign('mImg','mImgPreviewBox',t.files[0],'صورة العضو'); if(t.id==='sLogoFile')assign('sLogo','sLogoPreviewBox',t.files[0],'شعار الموقع')},true);
-  function persist(){try{localStorage.setItem(LS,JSON.stringify(state));return true}catch(e){msg('تعذر الحفظ، الصورة كبيرة أو مساحة المتصفح ممتلئة. جرّب صورة أصغر.');return false}}
-  window.save=function(){return persist()};
-  window.saveProduct=function(id){
-    const data={name:(byId('pName')?.value||'').trim(),branch:byId('pBranch')?.value||'كل الفروع',group:(byId('pGroup')?.value||'').trim(),status:byId('pStatus')?.value||'available',order:Number(byId('pOrder')?.value)||1,img:byId('pImg')?.value||''};
-    if(!data.name){msg('اكتب اسم المنتج');return}
-    if(id){const p=(state.products||[]).find(x=>String(x.id)===String(id)); if(p)Object.assign(p,data)} else {(state.products=state.products||[]).unshift({id:Date.now(),...data})}
-    if(persist()){try{log(id?'تعديل منتج':'إضافة منتج',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); msg('تم حفظ المنتج'); render()}
-  };
-  window.saveBranch=function(id){
-    const data={name:(byId('bName')?.value||'').trim(),icon:byId('bIcon')?.value||'storefront',order:Number(byId('bOrder')?.value)||1,status:byId('bStatus')?.value||'visible',img:byId('bImg')?.value||''};
-    if(!data.name){msg('اكتب اسم الفرع');return}
-    if(id){const b=(state.branches||[]).find(x=>String(x.id)===String(id)); if(b)Object.assign(b,data)} else {(state.branches=state.branches||[]).unshift({id:Date.now(),...data})}
-    if(persist()){try{log(id?'تعديل فرع':'إضافة فرع',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); msg('تم حفظ الفرع'); render()}
-  };
-  window.saveMember=function(id){
-    const data={name:(byId('mName')?.value||'').trim(),username:(byId('mUsername')?.value||byId('mCode')?.value||'').trim(),phone:(byId('mPhone')?.value||'').trim(),address:(byId('mAddress')?.value||byId('mArea')?.value||'').trim(),area:(byId('mAddress')?.value||byId('mArea')?.value||'').trim(),code:(byId('mUsername')?.value||byId('mCode')?.value||'').trim(),balance:Number(byId('mBalance')?.value)||0,status:byId('mStatus')?.value||'active',createdAt:byId('mCreatedAt')?.value||new Date().toLocaleDateString('ar-IQ'),img:byId('mImg')?.value||''};
-    if(!data.name){msg('اكتب اسم العضو');return}
-    if(id){const m=(state.members||[]).find(x=>String(x.id)===String(id)); if(m)Object.assign(m,data)} else {(state.members=state.members||[]).unshift({id:Date.now(),...data})}
-    if(persist()){try{log(id?'تعديل عضو':'إضافة عضو',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); msg('تم حفظ العضو'); render()}
-  };
-})();
-</script>
-
-</body></html>');
-      w.document.close();
-    }else{
-      safeToast('المتصفح منع نافذة المعاينة');
-    }
-  }
-
-  window.makeContainedProductImage = function(src, cb){ cb(src); };
-
-  function assignImageValue(inputId, boxId, file, label){
-    if(!file){ safeToast('لم يتم اختيار صورة'); return; }
-    if(!String(file.type || '').startsWith('image/')){ safeToast('اختر ملف صورة فقط'); return; }
-    const reader = new FileReader();
-    reader.onload = function(){
-      const data = reader.result || '';
-      const input = document.getElementById(inputId);
-      if(input) input.value = data;
-      setPreview(boxId, data, label || 'الصورة');
-      safeToast('تم رفع الصورة');
-    };
-    reader.onerror = function(){ safeToast('تعذر قراءة الصورة'); };
-    reader.readAsDataURL(file);
-  }
-
-  window.handleProductImageUpload = function(ev){
-    const file = ev && ev.target && ev.target.files ? ev.target.files[0] : null;
-    assignImageValue('pImg', 'pImgPreviewBox', file, 'معاينة صورة المنتج');
-  };
-
-  window.clearProductImage = function(){
-    const input = document.getElementById('pImg'); if(input) input.value = '';
-    const file = document.getElementById('pFile'); if(file) file.value = '';
-    const box = document.getElementById('pImgPreviewBox'); if(box) box.innerHTML = '<span id="pImgPlaceholder">صورة المنتج</span>';
-    safeToast('تم حذف الصورة');
-  };
-
-  window.previewProductImage = function(){
-    const src = (document.getElementById('pImg')||{}).value || '';
-    openImagePreview(src);
-  };
-  window.previewProductImageFull = window.previewProductImage;
-
-  window.handleCompactImageUpload = function(ev, inputId, boxId, label){
-    const file = ev && ev.target && ev.target.files ? ev.target.files[0] : null;
-    assignImageValue(inputId, boxId, file, label || 'الصورة');
-  };
-
-  window.clearCompactImage = function(inputId, boxId, label){
-    const input = document.getElementById(inputId); if(input) input.value = '';
-    const box = document.getElementById(boxId); if(box) box.textContent = label || 'صورة';
-    const fileId = inputId === 'bImg' ? 'bFile' : (inputId === 'mImg' ? 'mFile' : '');
-    const file = fileId ? document.getElementById(fileId) : null; if(file) file.value = '';
-    safeToast('تم حذف الصورة');
-  };
-
-  window.previewCompactImage = function(inputId){
-    const src = (document.getElementById(inputId)||{}).value || '';
-    openImagePreview(src);
-  };
-
-  window.pickImageFile = function(targetId){
-    const input = document.getElementById(targetId);
-    if(!input){ safeToast('زر اختيار الصورة غير جاهز'); return; }
-    input.value = '';
-    input.click();
-  };
-
-  document.addEventListener('click', function(e){
-    const btn = e.target && e.target.closest ? e.target.closest('[data-image-pick]') : null;
-    if(!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    window.pickImageFile(btn.getAttribute('data-image-pick'));
-  }, true);
-
-  document.addEventListener('change', function(e){
-    const t = e.target;
-    if(!t || !t.id || !t.files) return;
-    if(t.id === 'pFile') assignImageValue('pImg', 'pImgPreviewBox', t.files[0], 'معاينة صورة المنتج');
-    if(t.id === 'bFile') assignImageValue('bImg', 'bImgPreviewBox', t.files[0], 'صورة الفرع');
-    if(t.id === 'mFile') assignImageValue('mImg', 'mImgPreviewBox', t.files[0], 'صورة العضو');
-  }, true);
-
-  document.addEventListener('keydown', function(e){
-    const btn = e.target && e.target.closest ? e.target.closest('[data-image-pick]') : null;
-    if(!btn) return;
-    if(e.key === 'Enter' || e.key === ' '){
-      e.preventDefault();
-      window.pickImageFile(btn.getAttribute('data-image-pick'));
-    }
-  }, true);
-})();
-
-
-
-/* LINKO final image upload repair: no crop, working preview, working save */
-(function(){
-  function safeToast(msg){ try{ if(typeof toast==='function') toast(msg); }catch(e){} }
-  function byId(id){ return document.getElementById(id); }
-  function escAttr(v){ return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  window.linkoImagePreview = function(src){
-    if(!src){ safeToast('لا توجد صورة للمعاينة'); return; }
-    const old=byId('linkoImagePreviewLayer'); if(old) old.remove();
-    const layer=document.createElement('div');
-    layer.id='linkoImagePreviewLayer';
-    layer.className='linko-image-preview-layer';
-    layer.innerHTML='<div class="linko-image-preview-card"><img src="'+escAttr(src)+'" alt="معاينة الصورة"><button type="button" class="btn dark" id="linkoCloseImagePreview">إغلاق المعاينة</button></div>';
-    document.body.appendChild(layer);
-    layer.addEventListener('click',function(e){ if(e.target===layer || e.target.id==='linkoCloseImagePreview') layer.remove(); });
-  };
-
-  function setPreview(boxId, data, alt){
-    const box=byId(boxId);
-    if(box){ box.innerHTML='<img src="'+escAttr(data)+'" alt="'+escAttr(alt||'الصورة')+'">'; }
-  }
-
-  function compressImageFile(file, cb){
-    if(!file){ safeToast('لم يتم اختيار صورة'); return; }
-    if(!String(file.type||'').startsWith('image/')){ safeToast('اختر ملف صورة فقط'); return; }
-    if(file.size > 15*1024*1024){ safeToast('الصورة كبيرة جداً، اختر صورة أقل من 15MB'); return; }
-    const reader=new FileReader();
-    reader.onerror=function(){ safeToast('تعذر قراءة الصورة'); };
-    reader.onload=function(){
-      const original=reader.result;
-      const img=new Image();
-      img.onload=function(){
-        try{
-          const maxSide=1100;
-          let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
-          const scale=Math.min(1, maxSide/Math.max(w,h));
-          const cw=Math.max(1, Math.round(w*scale));
-          const ch=Math.max(1, Math.round(h*scale));
-          const canvas=document.createElement('canvas');
-          canvas.width=cw; canvas.height=ch;
-          const ctx=canvas.getContext('2d');
-          ctx.clearRect(0,0,cw,ch);
-          ctx.drawImage(img,0,0,cw,ch);
-          let data;
-          try{ data=canvas.toDataURL('image/jpeg',0.86); }
-          catch(e){ data=original; }
-          cb(data);
-        }catch(e){ cb(original); }
-      };
-      img.onerror=function(){ cb(original); };
-      img.src=original;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function assignImage(inputId, boxId, file, label){
-    compressImageFile(file,function(data){
-      const input=byId(inputId); if(input) input.value=data;
-      setPreview(boxId,data,label||'الصورة');
-      safeToast('تم رفع الصورة بنجاح');
-    });
-  }
-
-  window.handleProductImageUpload=function(ev){ assignImage('pImg','pImgPreviewBox', ev?.target?.files?.[0], 'صورة المنتج'); };
-  window.handleCompactImageUpload=function(ev,inputId,boxId,label){ assignImage(inputId,boxId, ev?.target?.files?.[0], label||'الصورة'); };
-  window.previewProductImage=function(){ linkoImagePreview(byId('pImg')?.value||''); };
-  window.previewProductImageFull=window.previewProductImage;
-  window.previewCompactImage=function(inputId){ linkoImagePreview(byId(inputId)?.value||''); };
-  window.clearProductImage=function(){
-    const input=byId('pImg'); if(input) input.value='';
-    const file=byId('pFile'); if(file) file.value='';
-    const box=byId('pImgPreviewBox'); if(box) box.innerHTML='<span id="pImgPlaceholder">صورة المنتج</span>';
-    safeToast('تم حذف الصورة');
-  };
-  window.clearCompactImage=function(inputId,boxId,label){
-    const input=byId(inputId); if(input) input.value='';
-    const box=byId(boxId); if(box) box.textContent=label||'صورة';
-    const fileId=inputId==='bImg'?'bFile':(inputId==='mImg'?'mFile':(inputId==='sLogo'?'sLogoFile':''));
-    const file=fileId?byId(fileId):null; if(file) file.value='';
-    safeToast('تم حذف الصورة');
-  };
-  window.pickImageFile=function(targetId){ const input=byId(targetId); if(input){ input.value=''; input.click(); } else safeToast('زر اختيار الصورة غير جاهز'); };
-
-  document.addEventListener('click',function(e){
-    const btn=e.target?.closest?.('[data-image-pick]');
-    if(!btn) return;
-    e.preventDefault(); e.stopPropagation();
-    pickImageFile(btn.getAttribute('data-image-pick'));
-  },true);
-  document.addEventListener('change',function(e){
-    const t=e.target;
-    if(!t || !t.files || !t.id) return;
-    if(t.id==='pFile') assignImage('pImg','pImgPreviewBox',t.files[0],'صورة المنتج');
-    if(t.id==='bFile') assignImage('bImg','bImgPreviewBox',t.files[0],'صورة الفرع');
-    if(t.id==='mFile') assignImage('mImg','mImgPreviewBox',t.files[0],'صورة العضو');
-    if(t.id==='sLogoFile') assignImage('sLogo','sLogoPreviewBox',t.files[0],'شعار الموقع');
-  },true);
-
-  const oldSave = window.save || save;
-  window.save=function(){
-    try{ localStorage.setItem(LS,JSON.stringify(state)); return true; }
-    catch(e){ safeToast('تعذر الحفظ: الصورة كبيرة أو مساحة التخزين ممتلئة'); return false; }
-  };
-
-  window.saveProduct=function(id){
-    const data={name:(byId('pName')?.value||'').trim(),branch:byId('pBranch')?.value||'كل الفروع',group:(byId('pGroup')?.value||'').trim(),status:byId('pStatus')?.value||'available',order:Number(byId('pOrder')?.value)||1,img:byId('pImg')?.value||''};
-    if(!data.name){ safeToast('اكتب اسم المنتج'); return; }
-    if(id){ const p=(state.products||[]).find(x=>String(x.id)===String(id)); if(p) Object.assign(p,data); }
-    else{ (state.products=state.products||[]).unshift({id:Date.now(),...data}); }
-    if(window.save()!==false){ try{log(id?'تعديل منتج':'إضافة منتج',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); safeToast('تم حفظ المنتج'); render(); }
-  };
-  window.saveBranch=function(id){
-    const data={name:(byId('bName')?.value||'').trim(),icon:byId('bIcon')?.value||'storefront',order:Number(byId('bOrder')?.value)||1,status:byId('bStatus')?.value||'visible',img:byId('bImg')?.value||''};
-    if(!data.name){ safeToast('اكتب اسم الفرع'); return; }
-    if(id){ const b=(state.branches||[]).find(x=>String(x.id)===String(id)); if(b) Object.assign(b,data); }
-    else{ (state.branches=state.branches||[]).unshift({id:Date.now(),...data}); }
-    if(window.save()!==false){ try{log(id?'تعديل فرع':'إضافة فرع',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); safeToast('تم حفظ الفرع'); render(); }
-  };
-  window.saveMember=function(id){
-    const data={name:(byId('mName')?.value||'').trim(),phone:(byId('mPhone')?.value||'').trim(),area:byId('mArea')?.value||'',code:byId('mCode')?.value||'',balance:Number(byId('mBalance')?.value)||0,status:byId('mStatus')?.value||'active',img:byId('mImg')?.value||''};
-    if(!data.name||!data.phone){ safeToast('أكمل الاسم والهاتف'); return; }
-    if(id){ const m=(state.members||[]).find(x=>String(x.id)===String(id)); if(m) Object.assign(m,data); }
-    else{ (state.members=state.members||[]).unshift({id:Date.now(),...data}); }
-    if(window.save()!==false){ try{log(id?'تعديل عضو':'إضافة عضو',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); safeToast('تم حفظ العضو'); render(); }
-  };
-})();
-
 initTheme();buildNav();render();
 </script>
 
@@ -1057,127 +690,161 @@ document.addEventListener('keydown', function(e){
     if (typeof searchRender === 'function') linkoStableSearch(t);
   }
 }, true);
-</script>
 
 
-
-<style id="linko-final-image-stability-css">
-/* تثبيت نظام الصور نهائياً: عرض كامل بدون قص داخل كل أقسام الإدارة */
-.image-preview,
-.compact-image-preview,
-.product-img,
-.branch-photo,
-.member-avatar{
-  overflow:hidden!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:#fff!important;
-}
-.image-preview img,
-.compact-image-preview img,
-.product-img img,
-.branch-photo img,
-.member-avatar img{
-  width:100%!important;
-  height:100%!important;
-  max-width:100%!important;
-  max-height:100%!important;
-  object-fit:contain!important;
-  object-position:center center!important;
-  display:block!important;
-  background:#fff!important;
-  padding:6px!important;
-  border-radius:14px!important;
-}
-.image-preview{height:260px!important;min-height:260px!important;max-height:260px!important;}
-.compact-image-preview{width:96px!important;height:96px!important;min-width:96px!important;}
-.linko-image-preview-layer{position:fixed!important;inset:0!important;z-index:99999!important;background:rgba(2,6,23,.86)!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:16px!important;backdrop-filter:blur(8px)!important;}
-.linko-image-preview-card{width:min(94vw,920px)!important;max-height:92vh!important;background:#fff!important;border-radius:24px!important;padding:14px!important;display:flex!important;flex-direction:column!important;gap:12px!important;box-shadow:0 30px 90px rgba(0,0,0,.38)!important;}
-.linko-image-preview-card img{width:100%!important;height:auto!important;max-width:100%!important;max-height:74vh!important;object-fit:contain!important;background:#fff!important;border-radius:16px!important;display:block!important;}
-.linko-image-preview-card .btn{width:100%!important;}
-</style>
-<script id="linko-final-image-stability-js">
+/* ===== LINKO CLEAN IMAGE UPLOAD FINAL FIX ===== */
 (function(){
-  'use strict';
-  function byId(id){return document.getElementById(id)}
-  function msg(t){try{typeof toast==='function'?toast(t):alert(t)}catch(e){}}
-  function esc(v){return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-  function putPreview(boxId, src, label){
-    const box=byId(boxId); if(!box) return;
-    if(src){box.innerHTML='<img src="'+esc(src)+'" alt="'+esc(label||'الصورة')+'">'}
-    else{box.textContent=label||'صورة'}
+  function byId(id){ return document.getElementById(id); }
+  function msg(t){ try{ toast(t); }catch(e){ alert(t); } }
+  function escapeHtml(v){ return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function setPreview(boxId, src, label){
+    var box=byId(boxId);
+    if(!box) return;
+    if(src){ box.innerHTML='<img src="'+src+'" alt="'+escapeHtml(label||'صورة')+'">'; }
+    else{ box.innerHTML='<span>'+escapeHtml(label||'صورة')+'</span>'; }
   }
-  function readImage(file, done){
-    if(!file){msg('لم يتم اختيار صورة');return}
-    if(!/^image\//.test(file.type||'')){msg('اختر ملف صورة فقط');return}
-    const reader=new FileReader();
-    reader.onerror=function(){msg('تعذر قراءة الصورة')};
-    reader.onload=function(){
-      const original=reader.result;
-      const img=new Image();
+  function readImageFile(file, done){
+    if(!file){ msg('لم يتم اختيار صورة'); return; }
+    if(!String(file.type||'').startsWith('image/')){ msg('اختر ملف صورة فقط'); return; }
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
       img.onload=function(){
+        var max=1200;
+        var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        var ratio=Math.min(1, max/Math.max(w,h));
+        var cw=Math.max(1,Math.round(w*ratio)), ch=Math.max(1,Math.round(h*ratio));
         try{
-          const maxSide=700;
-          const w=img.naturalWidth||img.width||1, h=img.naturalHeight||img.height||1;
-          const scale=Math.min(1, maxSide/Math.max(w,h));
-          const cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
-          const canvas=document.createElement('canvas'); canvas.width=cw; canvas.height=ch;
-          const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,cw,ch); ctx.drawImage(img,0,0,cw,ch);
-          let data=original;
-          try{data=canvas.toDataURL('image/jpeg',0.72)}catch(e){}
+          var canvas=document.createElement('canvas');
+          canvas.width=cw; canvas.height=ch;
+          var ctx=canvas.getContext('2d');
+          ctx.clearRect(0,0,cw,ch);
+          ctx.drawImage(img,0,0,cw,ch);
+          var type=file.type==='image/png'?'image/png':'image/jpeg';
+          var data= type==='image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg',0.88);
           done(data);
-        }catch(e){done(original)}
+        }catch(err){ done(String(e.target.result||'')); }
       };
-      img.onerror=function(){done(original)};
-      img.src=original;
+      img.onerror=function(){ done(String(e.target.result||'')); };
+      img.src=String(e.target.result||'');
     };
+    reader.onerror=function(){ msg('تعذر قراءة الصورة'); };
     reader.readAsDataURL(file);
   }
-  function assign(inputId, boxId, file, label){
-    readImage(file,function(src){
-      const inp=byId(inputId); if(inp) inp.value=src;
-      putPreview(boxId,src,label);
-      msg('تم رفع الصورة بنجاح');
+  window.linkoAssignImage=function(inputId, boxId, label, file){
+    readImageFile(file,function(data){
+      var input=byId(inputId); if(input) input.value=data;
+      setPreview(boxId,data,label);
+      msg('تمت إضافة الصورة');
     });
-  }
-  window.pickImageFile=function(id){const f=byId(id); if(!f){msg('زر اختيار الصورة غير جاهز');return} f.value=''; f.click();};
-  window.handleProductImageUpload=function(e){assign('pImg','pImgPreviewBox',e&&e.target&&e.target.files?e.target.files[0]:null,'صورة المنتج')};
-  window.handleCompactImageUpload=function(e,inputId,boxId,label){assign(inputId,boxId,e&&e.target&&e.target.files?e.target.files[0]:null,label||'الصورة')};
-  window.linkoImagePreview=function(src){
-    if(!src){msg('لا توجد صورة للمعاينة');return}
-    const old=byId('linkoImagePreviewLayer'); if(old) old.remove();
-    const layer=document.createElement('div'); layer.id='linkoImagePreviewLayer'; layer.className='linko-image-preview-layer';
-    layer.innerHTML='<div class="linko-image-preview-card"><img src="'+esc(src)+'" alt="معاينة الصورة"><button type="button" class="btn dark" id="linkoCloseImagePreview">إغلاق المعاينة</button></div>';
-    document.body.appendChild(layer);
-    layer.addEventListener('click',function(ev){if(ev.target===layer || ev.target.id==='linkoCloseImagePreview') layer.remove()});
   };
-  window.previewProductImage=function(){window.linkoImagePreview(byId('pImg')?byId('pImg').value:'')};
-  window.previewProductImageFull=window.previewProductImage;
-  window.previewCompactImage=function(inputId){window.linkoImagePreview(byId(inputId)?byId(inputId).value:'')};
-  window.clearProductImage=function(){const i=byId('pImg'); if(i)i.value=''; const f=byId('pFile'); if(f)f.value=''; putPreview('pImgPreviewBox','', 'صورة المنتج'); msg('تم حذف الصورة')};
-  window.clearCompactImage=function(inputId,boxId,label){const i=byId(inputId); if(i)i.value=''; const f=byId(inputId==='bImg'?'bFile':inputId==='mImg'?'mFile':inputId==='sLogo'?'sLogoFile':''); if(f)f.value=''; putPreview(boxId,'',label||'صورة'); msg('تم حذف الصورة')};
-  document.addEventListener('click',function(e){const b=e.target&&e.target.closest?e.target.closest('[data-image-pick]'):null; if(!b)return; e.preventDefault(); e.stopPropagation(); window.pickImageFile(b.getAttribute('data-image-pick'))},true);
-  document.addEventListener('change',function(e){const t=e.target; if(!t||!t.files||!t.id)return; if(t.id==='pFile')assign('pImg','pImgPreviewBox',t.files[0],'صورة المنتج'); if(t.id==='bFile')assign('bImg','bImgPreviewBox',t.files[0],'صورة الفرع'); if(t.id==='mFile')assign('mImg','mImgPreviewBox',t.files[0],'صورة العضو'); if(t.id==='sLogoFile')assign('sLogo','sLogoPreviewBox',t.files[0],'شعار الموقع')},true);
-  function persist(){try{localStorage.setItem(LS,JSON.stringify(state));return true}catch(e){msg('تعذر الحفظ، الصورة كبيرة أو مساحة المتصفح ممتلئة. جرّب صورة أصغر.');return false}}
-  window.save=function(){return persist()};
+  window.handleProductImageUpload=function(ev){
+    var file=ev && ev.target && ev.target.files ? ev.target.files[0] : null;
+    window.linkoAssignImage('pImg','pImgPreviewBox','صورة المنتج',file);
+  };
+  window.handleCompactImageUpload=function(ev,inputId,boxId,label){
+    var file=ev && ev.target && ev.target.files ? ev.target.files[0] : null;
+    window.linkoAssignImage(inputId,boxId,label||'صورة',file);
+  };
+  window.clearProductImage=function(){
+    var input=byId('pImg'); if(input) input.value='';
+    var file=byId('pFile'); if(file) file.value='';
+    setPreview('pImgPreviewBox','', 'صورة المنتج');
+    msg('تم حذف الصورة');
+  };
+  window.clearCompactImage=function(inputId,boxId,label){
+    var input=byId(inputId); if(input) input.value='';
+    var fileId=inputId==='bImg'?'bFile':(inputId==='mImg'?'mFile':'');
+    var file=fileId?byId(fileId):null; if(file) file.value='';
+    setPreview(boxId,'',label||'صورة');
+    msg('تم حذف الصورة');
+  };
+  window.linkoImagePreview=function(src){
+    if(!src){ msg('لا توجد صورة للمعاينة'); return; }
+    var old=byId('linkoImagePreviewLayer'); if(old) old.remove();
+    var layer=document.createElement('div');
+    layer.id='linkoImagePreviewLayer';
+    layer.className='linko-image-preview-layer';
+    layer.innerHTML='<div class="linko-image-preview-card"><h3>معاينة الصورة</h3><div class="preview-box"><img src="'+src+'" alt="معاينة الصورة"></div><button type="button" class="btn dark full" id="linkoCloseImagePreview">إغلاق المعاينة</button></div>';
+    document.body.appendChild(layer);
+    var close=byId('linkoCloseImagePreview'); if(close) close.onclick=function(){layer.remove();};
+    layer.addEventListener('click',function(e){ if(e.target===layer) layer.remove(); });
+  };
+  window.previewProductImage=function(){
+    var input=byId('pImg');
+    window.linkoImagePreview(input?input.value:'');
+  };
+  window.previewCompactImage=function(inputId){
+    var input=byId(inputId);
+    window.linkoImagePreview(input?input.value:'');
+  };
+  window.openProduct=function(id){
+    var p=id?(state.products||[]).find(function(x){return x.id===id;}):{name:'',branch:(state.branches&&state.branches[0]?state.branches[0].name:'كل الفروع'),group:'',status:'available',order:(state.products||[]).length+1,img:''};
+    p=p||{}; var imgSrc=p.img||'';
+    openModal(id?'تعديل منتج':'إضافة منتج', '<div class="form-grid">'+
+      '<div class="field"><label>اسم المنتج</label><input class="input" id="pName" value="'+escapeHtml(p.name||'')+'"></div>'+
+      '<div class="field"><label>الفرع</label><select id="pBranch"><option '+(p.branch==='كل الفروع'?'selected':'')+'>كل الفروع</option>'+((state.branches||[]).map(function(b){return '<option '+(p.branch===b.name?'selected':'')+'>'+escapeHtml(b.name)+'</option>';}).join(''))+'</select></div>'+
+      '<div class="field"><label>المجموعة</label><input class="input" id="pGroup" value="'+escapeHtml(p.group||'')+'" placeholder="اختياري"></div>'+
+      '<div class="field"><label>الحالة</label><select id="pStatus"><option value="available" '+(p.status==='available'?'selected':'')+'>متوفر</option><option value="unavailable" '+(p.status==='unavailable'?'selected':'')+'>غير متوفر</option></select></div>'+
+      '<div class="field"><label>ترتيب المنتج</label><input class="input" id="pOrder" type="number" value="'+(p.order||1)+'"></div>'+
+      '<div class="image-picker"><div class="image-preview" id="pImgPreviewBox">'+(imgSrc?'<img src="'+imgSrc+'" alt="صورة المنتج">':'<span>صورة المنتج</span>')+'</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة المنتج</label><input class="input image-url-box" id="pImg" value="'+escapeHtml(imgSrc)+'"><input class="image-hidden-input" id="pFile" type="file" accept="image/*" onchange="handleProductImageUpload(event)"><label class="upload-label" for="pFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة من الجهاز</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewProductImage()">معاينة</button><button type="button" class="btn danger mini" onclick="clearProductImage()">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div>'+
+      '<button type="button" class="btn wide" onclick="saveProduct('+(id||0)+')">حفظ المنتج</button></div>');
+  };
   window.saveProduct=function(id){
-    const data={name:(byId('pName')?.value||'').trim(),branch:byId('pBranch')?.value||'كل الفروع',group:(byId('pGroup')?.value||'').trim(),status:byId('pStatus')?.value||'available',order:Number(byId('pOrder')?.value)||1,img:byId('pImg')?.value||''};
-    if(!data.name){msg('اكتب اسم المنتج');return}
-    if(id){const p=(state.products||[]).find(x=>String(x.id)===String(id)); if(p)Object.assign(p,data)} else {(state.products=state.products||[]).unshift({id:Date.now(),...data})}
-    if(persist()){try{log(id?'تعديل منتج':'إضافة منتج',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); msg('تم حفظ المنتج'); render()}
+    var data={
+      name:(byId('pName')?byId('pName').value.trim():''),
+      branch:(byId('pBranch')?byId('pBranch').value:'كل الفروع'),
+      group:(byId('pGroup')?byId('pGroup').value.trim():''),
+      status:(byId('pStatus')?byId('pStatus').value:'available'),
+      order:Number(byId('pOrder')?byId('pOrder').value:1)||1,
+      img:(byId('pImg')?byId('pImg').value:'')
+    };
+    if(!data.name){ msg('اكتب اسم المنتج'); return; }
+    if(id){ var p=(state.products||[]).find(function(x){return x.id===id;}); if(p) Object.assign(p,data); try{log('تعديل منتج','تم تعديل '+data.name);}catch(e){} }
+    else{ (state.products=state.products||[]).unshift(Object.assign({id:Date.now()},data)); try{log('إضافة منتج','تم إضافة '+data.name);}catch(e){} }
+    try{ save(); }catch(e){ msg('تعذر الحفظ، قد تكون الصورة كبيرة جداً'); return; }
+    closeModal(); msg('تم حفظ المنتج'); render();
+  };
+  window.openBranch=function(id){
+    var b=id?(state.branches||[]).find(function(x){return x.id===id;}):{name:'',icon:'storefront',order:(state.branches||[]).length+1,status:'visible',img:''};
+    b=b||{}; var imgSrc=b.img||'';
+    openModal(id?'تعديل فرع':'إضافة فرع','<div class="form-grid">'+
+      '<div class="field"><label>اسم الفرع</label><input class="input" id="bName" value="'+escapeHtml(b.name||'')+'"></div>'+
+      '<div class="field"><label>أيقونة الفرع</label><input class="input" id="bIcon" value="'+escapeHtml(b.icon||'storefront')+'" placeholder="مثال: storefront"></div>'+
+      '<div class="field"><label>ترتيب الفرع</label><input class="input" id="bOrder" type="number" value="'+(b.order||1)+'"></div>'+
+      '<div class="field"><label>حالة الفرع</label><select id="bStatus"><option value="visible" '+(b.status==='visible'?'selected':'')+'>ظاهر</option><option value="hidden" '+(b.status==='hidden'?'selected':'')+'>مخفي</option></select></div>'+
+      '<div class="compact-image-picker"><div class="compact-image-preview" id="bImgPreviewBox">'+(imgSrc?'<img src="'+imgSrc+'" alt="صورة الفرع">':'فرع')+'</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة الفرع</label><input class="image-hidden-input" id="bFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,\'bImg\',\'bImgPreviewBox\',\'فرع\')"><input type="hidden" id="bImg" value="'+escapeHtml(imgSrc)+'"><label class="upload-label" for="bFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewCompactImage(\'bImg\')">معاينة</button><button type="button" class="btn danger mini" onclick="clearCompactImage(\'bImg\',\'bImgPreviewBox\',\'فرع\')">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div>'+
+      '<button type="button" class="btn wide" onclick="saveBranch('+(id||0)+')">حفظ الفرع</button></div>');
   };
   window.saveBranch=function(id){
-    const data={name:(byId('bName')?.value||'').trim(),icon:byId('bIcon')?.value||'storefront',order:Number(byId('bOrder')?.value)||1,status:byId('bStatus')?.value||'visible',img:byId('bImg')?.value||''};
-    if(!data.name){msg('اكتب اسم الفرع');return}
-    if(id){const b=(state.branches||[]).find(x=>String(x.id)===String(id)); if(b)Object.assign(b,data)} else {(state.branches=state.branches||[]).unshift({id:Date.now(),...data})}
-    if(persist()){try{log(id?'تعديل فرع':'إضافة فرع',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); msg('تم حفظ الفرع'); render()}
+    var data={name:(byId('bName')?byId('bName').value.trim():''),icon:(byId('bIcon')?byId('bIcon').value.trim():'storefront'),order:Number(byId('bOrder')?byId('bOrder').value:1)||1,status:(byId('bStatus')?byId('bStatus').value:'visible'),img:(byId('bImg')?byId('bImg').value:'')};
+    if(!data.name){ msg('اكتب اسم الفرع'); return; }
+    if(id){ var b=(state.branches||[]).find(function(x){return x.id===id;}); if(b) Object.assign(b,data); try{log('تعديل فرع','تم تعديل '+data.name);}catch(e){} }
+    else{ (state.branches=state.branches||[]).unshift(Object.assign({id:Date.now()},data)); try{log('إضافة فرع','تم إضافة '+data.name);}catch(e){} }
+    try{ save(); }catch(e){ msg('تعذر الحفظ، قد تكون الصورة كبيرة جداً'); return; }
+    closeModal(); msg('تم حفظ الفرع'); render();
+  };
+  window.openMember=function(id){
+    var m=id?(state.members||[]).find(function(x){return x.id===id;}):{name:'',username:'',phone:'',address:'',balance:0,status:'active',createdAt:new Date().toLocaleDateString('ar-IQ'),img:''};
+    m=m||{}; var imgSrc=m.img||'';
+    openModal(id?'تعديل عضو':'إضافة عضو','<div class="form-grid">'+
+      '<div class="field"><label>الاسم</label><input class="input" id="mName" value="'+escapeHtml(m.name||'')+'"></div>'+
+      '<div class="field"><label>اسم المستخدم</label><input class="input" id="mUsername" value="'+escapeHtml(m.username||'')+'"></div>'+
+      '<div class="field"><label>الهاتف</label><input class="input" id="mPhone" value="'+escapeHtml(m.phone||'')+'"></div>'+
+      '<div class="field"><label>العنوان</label><input class="input" id="mAddress" value="'+escapeHtml(m.address||'')+'"></div>'+
+      '<div class="field"><label>الرصيد</label><input class="input" id="mBalance" type="number" value="'+(m.balance||0)+'"></div>'+
+      '<div class="field"><label>الحالة</label><select id="mStatus"><option value="active" '+(m.status==='active'?'selected':'')+'>مفعل</option><option value="stopped" '+(m.status==='stopped'?'selected':'')+'>موقوف</option></select></div>'+
+      '<div class="field"><label>تاريخ التسجيل</label><input class="input" id="mCreatedAt" value="'+escapeHtml(m.createdAt||'')+'"></div>'+
+      '<div class="compact-image-picker"><div class="compact-image-preview" id="mImgPreviewBox">'+(imgSrc?'<img src="'+imgSrc+'" alt="صورة العضو">':'صورة')+'</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة العضو</label><input class="image-hidden-input" id="mFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,\'mImg\',\'mImgPreviewBox\',\'صورة\')"><input type="hidden" id="mImg" value="'+escapeHtml(imgSrc)+'"><label class="upload-label" for="mFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewCompactImage(\'mImg\')">معاينة</button><button type="button" class="btn danger mini" onclick="clearCompactImage(\'mImg\',\'mImgPreviewBox\',\'صورة\')">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div>'+
+      '<button type="button" class="btn wide" onclick="saveMember('+(id||0)+')">حفظ العضو</button></div>');
   };
   window.saveMember=function(id){
-    const data={name:(byId('mName')?.value||'').trim(),username:(byId('mUsername')?.value||byId('mCode')?.value||'').trim(),phone:(byId('mPhone')?.value||'').trim(),address:(byId('mAddress')?.value||byId('mArea')?.value||'').trim(),area:(byId('mAddress')?.value||byId('mArea')?.value||'').trim(),code:(byId('mUsername')?.value||byId('mCode')?.value||'').trim(),balance:Number(byId('mBalance')?.value)||0,status:byId('mStatus')?.value||'active',createdAt:byId('mCreatedAt')?.value||new Date().toLocaleDateString('ar-IQ'),img:byId('mImg')?.value||''};
-    if(!data.name){msg('اكتب اسم العضو');return}
-    if(id){const m=(state.members||[]).find(x=>String(x.id)===String(id)); if(m)Object.assign(m,data)} else {(state.members=state.members||[]).unshift({id:Date.now(),...data})}
-    if(persist()){try{log(id?'تعديل عضو':'إضافة عضو',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); msg('تم حفظ العضو'); render()}
+    var data={name:(byId('mName')?byId('mName').value.trim():''),username:(byId('mUsername')?byId('mUsername').value.trim():''),phone:(byId('mPhone')?byId('mPhone').value.trim():''),address:(byId('mAddress')?byId('mAddress').value.trim():''),balance:Number(byId('mBalance')?byId('mBalance').value:0)||0,status:(byId('mStatus')?byId('mStatus').value:'active'),createdAt:(byId('mCreatedAt')?byId('mCreatedAt').value:''),img:(byId('mImg')?byId('mImg').value:'')};
+    if(!data.name||!data.phone){ msg('أكمل الاسم والهاتف'); return; }
+    if(id){ var m=(state.members||[]).find(function(x){return x.id===id;}); if(m) Object.assign(m,data); try{log('تعديل عضو','تم تعديل '+data.name);}catch(e){} }
+    else{ (state.members=state.members||[]).unshift(Object.assign({id:Date.now()},data)); try{log('إضافة عضو','تم إضافة '+data.name);}catch(e){} }
+    try{ save(); }catch(e){ msg('تعذر الحفظ، قد تكون الصورة كبيرة جداً'); return; }
+    closeModal(); msg('تم حفظ العضو'); render();
   };
 })();
 </script>
