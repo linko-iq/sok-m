@@ -1876,5 +1876,120 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   });
 </script>
 
+
+
+<script type="module" id="linkoFirebaseAdminRealtimeSync">
+  import { collection, doc, getDoc, onSnapshot, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+  const waitFirebase = () => new Promise(resolve => {
+    const tick = () => {
+      if (window.linkoFirebaseAdmin && window.linkoFirebaseAdmin.db && window.linkoFirebaseAdmin.auth) resolve(window.linkoFirebaseAdmin);
+      else setTimeout(tick, 120);
+    };
+    tick();
+  });
+
+  const KEYS = {
+    branches:'linko_market_branches',
+    products:'linko_market_products',
+    members:'linko_market_members',
+    requests:'linko_market_requests',
+    orders:'linko_market_orders',
+    dataRequests:'linko_market_data_requests',
+    settings:'linko_market_public_settings'
+  };
+  let applyingRemote = false;
+  let unsubscribers = [];
+  const clean = v => JSON.parse(JSON.stringify(v ?? null));
+  const toastSafe = msg => { try { window.toast(msg); } catch(e){} };
+  const renderSafe = () => { try { window.render(); } catch(e){} };
+  const localMirror = () => {
+    try{
+      localStorage.setItem(KEYS.branches, JSON.stringify(window.state.branches||[]));
+      localStorage.setItem(KEYS.products, JSON.stringify(window.state.products||[]));
+      localStorage.setItem(KEYS.members, JSON.stringify(window.state.members||[]));
+      localStorage.setItem(KEYS.requests, JSON.stringify(window.state.requests||[]));
+      localStorage.setItem(KEYS.orders, JSON.stringify(window.state.orders||[]));
+      localStorage.setItem(KEYS.dataRequests, JSON.stringify(window.state.dataRequests||[]));
+      localStorage.setItem(KEYS.settings, JSON.stringify(window.state.settings||{}));
+      localStorage.setItem('linko_admin_state', JSON.stringify(window.state||{}));
+    }catch(e){}
+  };
+
+  function attachList(db, collectionName, stateKey){
+    return onSnapshot(collection(db, collectionName), snap => {
+      if (applyingRemote) return;
+      const rows = snap.docs.map(d => ({id:d.id, ...d.data()}));
+      rows.sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+      window.state[stateKey] = rows;
+      localMirror();
+      renderSafe();
+    }, err => console.error('Firestore listen error', collectionName, err));
+  }
+
+  function attachSettings(db){
+    return onSnapshot(doc(db, KEYS.settings, 'main'), snap => {
+      if (applyingRemote) return;
+      if (snap.exists()) {
+        window.state.settings = snap.data() || {};
+        localMirror();
+        renderSafe();
+      }
+    }, err => console.error('Firestore listen error settings', err));
+  }
+
+  async function syncCollection(db, name, rows){
+    rows = Array.isArray(rows) ? rows : [];
+    const ids = new Set(rows.map(x => String(x.id)));
+    const snap = await getDocs(collection(db, name));
+    await Promise.all(snap.docs.map(d => ids.has(d.id) ? Promise.resolve() : deleteDoc(doc(db, name, d.id))));
+    await Promise.all(rows.map(row => setDoc(doc(db, name, String(row.id)), clean(row), {merge:false})));
+  }
+
+  async function forceSyncAll(db){
+    applyingRemote = true;
+    try{
+      await Promise.all([
+        syncCollection(db, KEYS.branches, window.state.branches||[]),
+        syncCollection(db, KEYS.products, window.state.products||[]),
+        syncCollection(db, KEYS.members, window.state.members||[]),
+        syncCollection(db, KEYS.requests, window.state.requests||[]),
+        syncCollection(db, KEYS.orders, window.state.orders||[]),
+        syncCollection(db, KEYS.dataRequests, window.state.dataRequests||[]),
+        setDoc(doc(db, KEYS.settings, 'main'), clean(window.state.settings||{}), {merge:false})
+      ]);
+    }finally{
+      applyingRemote = false;
+    }
+  }
+
+  (async function initRealtime(){
+    const fb = await waitFirebase();
+    const {db, auth} = fb;
+    const oldSave = window.save;
+    window.save = function(){
+      try { if (oldSave) oldSave(); } catch(e){}
+      localMirror();
+      if (auth.currentUser) forceSyncAll(db).catch(e => { console.error(e); toastSafe('تعذر حفظ البيانات في Firebase'); });
+    };
+
+    window.linkoForceFirebaseSync = () => forceSyncAll(db).then(()=>toastSafe('تمت مزامنة البيانات')).catch(e=>{console.error(e);toastSafe('تعذر تنفيذ المزامنة')});
+
+    onAuthStateChanged(auth, user => {
+      unsubscribers.forEach(fn => { try{ fn(); }catch(e){} });
+      unsubscribers = [];
+      if (!user) return;
+      unsubscribers.push(attachList(db, KEYS.branches, 'branches'));
+      unsubscribers.push(attachList(db, KEYS.products, 'products'));
+      unsubscribers.push(attachList(db, KEYS.members, 'members'));
+      unsubscribers.push(attachList(db, KEYS.requests, 'requests'));
+      unsubscribers.push(attachList(db, KEYS.orders, 'orders'));
+      unsubscribers.push(attachList(db, KEYS.dataRequests, 'dataRequests'));
+      unsubscribers.push(attachSettings(db));
+    });
+  })();
+</script>
+
 </body>
 </html>
