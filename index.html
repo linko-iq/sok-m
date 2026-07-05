@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>لوحة إدارة سوق المدينة الكبير | LINKO Market</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -174,6 +174,34 @@ body.theme-dark .image-preview{background:#0f172a!important;border-color:#263244
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .theme-dark .kpi{background:linear-gradient(180deg,rgba(17,24,39,.98),rgba(11,18,32,.94))!important;border-color:rgba(255,255,255,.08)!important}.theme-dark .product-card,.theme-dark .member-card,.theme-dark .request-card,.theme-dark .branch-card,.theme-dark .log{background:linear-gradient(180deg,#111827,#0b1220)!important;border-color:rgba(255,255,255,.08)!important}.theme-dark .kpi small{color:#a7b0c0!important}.theme-dark .x{background:#111827;color:#fff}
 
+
+/* ===== LINKO ADMIN MOBILE STABILITY FIX ===== */
+html, body{
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+  overscroll-behavior-x:none!important;
+  touch-action:pan-y!important;
+}
+body{
+  position:relative!important;
+}
+.app,.layout,.content,.topbar,.main,.panel,.kpis,.cards,.branch-grid,.product-card,.member-card,.request-card,.branch-card,.modal,.modal-card{
+  max-width:100%!important;
+}
+img,video,canvas,svg,table{
+  max-width:100%!important;
+}
+.sidebar{
+  max-width:285px!important;
+}
+@media(max-width:980px){
+  .layout{overflow-x:hidden!important}
+  .content{width:100%!important;overflow-x:hidden!important}
+  .main{width:100%!important;overflow-x:hidden!important}
+  .top-row{width:100%!important}
+}
+
 </style>
 </head>
 <body>
@@ -238,8 +266,41 @@ function toggleTheme(){
 function initTheme(){applyTheme(localStorage.getItem(THEME_LS)||'light')}
 
 const sections=[['dashboard','dashboard','الرئيسية Dashboard','نظرة سريعة على حالة النظام اليوم.'],['subscriptions','assignment_add','طلبات الاشتراك','مراجعة طلبات الاشتراك الجديدة والموافقة أو الرفض.'],['purchaseOrders','receipt_long','طلبات الشراء','متابعة طلبات الأعضاء القادمة من واجهة الأعضاء.'],['members','groups','إدارة الأعضاء','بحث وتعديل بيانات الأعضاء والرصيد والحالة.'],['products','shopping_cart','إدارة المنتجات','إضافة وتعديل وحذف المنتجات والتحكم بالحالة والبيع.'],['branches','storefront','إدارة الفروع','إدارة فروع السوق والأقسام المرتبطة بها.'],['reports','monitoring','التقارير','إحصائيات الطلبات والأعضاء والمنتجات والفروع.'],['notifications','notifications','الإشعارات','إرسال إشعارات عامة أو مخصصة وسجل الإرسال.'],['logs','receipt_long','سجل العمليات','تتبع كل عملية مهمة داخل النظام.'],['settings','settings','إعدادات النظام','إعدادات عامة للهوية والعملة والواتساب.']];
+const OFFICIAL_BRANCHES=[
+ {id:1,name:'السوبر ماركت والمواد الغذائية',area:'قسم السوق',status:'active',img:'',order:1},
+ {id:2,name:'اللحوم والدواجن',area:'قسم السوق',status:'active',img:'',order:2},
+ {id:3,name:'الخضروات والفواكه',area:'قسم السوق',status:'active',img:'',order:3},
+ {id:4,name:'المخابز والأفران',area:'قسم السوق',status:'active',img:'',order:4},
+ {id:5,name:'المطاعم والمقاهي',area:'قسم السوق',status:'active',img:'',order:5},
+ {id:6,name:'الأثاث والمفروشات',area:'قسم السوق',status:'active',img:'',order:6},
+ {id:7,name:'الملابس والأحذية والرياضة',area:'قسم السوق',status:'active',img:'',order:7},
+ {id:8,name:'المجوهرات والتجميل',area:'قسم السوق',status:'active',img:'',order:8},
+ {id:9,name:'السكائر والنراكيل',area:'قسم السوق',status:'active',img:'',order:9},
+ {id:10,name:'الإلكترونيات والأجهزة الكهربائية',area:'قسم السوق',status:'active',img:'',order:10},
+ {id:11,name:'الأدوات المنزلية ومواد البناء',area:'قسم السوق',status:'active',img:'',order:11},
+ {id:12,name:'السيارات والدراجات',area:'قسم السوق',status:'active',img:'',order:12},
+ {id:13,name:'المكتبة والهدايا والألعاب',area:'قسم السوق',status:'active',img:'',order:13},
+ {id:14,name:'المقاولات',area:'قسم السوق',status:'active',img:'',order:14},
+ {id:15,name:'🌐 LINKO',area:'قسم السوق',status:'active',img:'',order:15}
+];
+function syncOfficialBranches(data){
+ const current=Array.isArray(data.branches)?data.branches:[];
+ const byName=new Map(current.map(b=>[b.name,b]));
+ data.branches=OFFICIAL_BRANCHES.map(b=>{
+   const old=byName.get(b.name)||{};
+   return {...b,status:old.status||b.status,img:old.img||b.img,area:old.area&&old.area!=='المنطقة'?old.area:b.area,order:old.order||b.order};
+ });
+ const officialNames=new Set(data.branches.map(b=>b.name));
+ data.products=(data.products||[]).map(pr=>{
+   if(pr.branch && pr.branch!=='كل الفروع' && !officialNames.has(pr.branch)){
+     return {...pr,branch:data.branches[0].name};
+   }
+   return pr;
+ });
+ return data;
+}
 let active='dashboard', state=loadState();
-function seed(){return{settings:{market:'سوق المدينة الكبير',whatsapp:'9647887624967',instagram:'https://www.instagram.com/medina__bazaar?igsh=MXY3Z3h5ZDV3ejl0aA%3D%3D&utm_source=qr',tiktok:'https://www.tiktok.com/@medina_bazaar?_r=1&_t=ZS-97mCEKI4ubn',deliveryMorningStart:'08:00',deliveryMorningEnd:'12:00',deliveryEveningStart:'16:00',deliveryEveningEnd:'20:00',deliveryPrice:'حسب المسافة',logo:''},requests:[],members:[],products:[],branches:[],notifications:[],logs:[{id:1,type:'تهيئة النظام',by:'admin',time:new Date().toLocaleString('ar-IQ'),details:'تم تشغيل لوحة الإدارة.'}],orders:[],dataRequests:[],adminMessages:[]}}
+function seed(){return{settings:{market:'سوق المدينة الكبير',whatsapp:'9647887624967',instagram:'https://www.instagram.com/medina__bazaar?igsh=MXY3Z3h5ZDV3ejl0aA%3D%3D&utm_source=qr',tiktok:'https://www.tiktok.com/@medina_bazaar?_r=1&_t=ZS-97mCEKI4ubn',deliveryMorningStart:'08:00',deliveryMorningEnd:'12:00',deliveryEveningStart:'16:00',deliveryEveningEnd:'20:00',deliveryPrice:'حسب المسافة',logo:''},requests:[],members:[],products:[],branches:OFFICIAL_BRANCHES.map(b=>({...b})),notifications:[],logs:[{id:1,type:'تهيئة النظام',by:'admin',time:new Date().toLocaleString('ar-IQ'),details:'تم تشغيل لوحة الإدارة.'}],orders:[],dataRequests:[],adminMessages:[]}}
 function normalizeState(data){
  const base=seed();
  data=data||base;
@@ -248,6 +309,7 @@ function normalizeState(data){
  data.members=(data.members||[]).map(m=>({...m,img:m.img||''}));
  data.products=(data.products||[]).map(p=>({...p,img:p.img||''}));
  data.branches=(data.branches||[]).map(b=>({...b,img:b.img||''}));
+ data=syncOfficialBranches(data);
  data.notifications=data.notifications||[];
  data.logs=data.logs||[];
  data.orders=data.orders||[];
@@ -330,9 +392,9 @@ function previewProductImageFull(){
 function saveProduct(id){let data={name:pName.value.trim(),branch:pBranch.value,group:pGroup.value.trim(),status:pStatus.value,order:Number(pOrder.value)||1,img:pImg.value};if(!data.name){toast('اكتب اسم المنتج');return}if(id){Object.assign(state.products.find(x=>x.id===id),data);log('تعديل منتج','تم تعديل '+data.name)}else{state.products.unshift({id:Date.now(),...data});log('إضافة منتج','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ المنتج');render()}
 function toggleProduct(id){let p=state.products.find(x=>x.id===id);p.status=p.status==='available'?'unavailable':'available';log('تغيير حالة منتج','تم تغيير حالة '+p.name);save();render()}
 function deleteProduct(id){if(confirm('تأكيد حذف المنتج؟')){let p=state.products.find(x=>x.id===id);state.products=state.products.filter(x=>x.id!==id);log('حذف منتج','تم حذف '+(p?.name||''));save();render()}}
-function branches(){return `<div class="panel"><div class="panel-head"><div><h2>إدارة الفروع</h2><p>إضافة وتعديل وإيقاف الفروع.</p></div><button class="btn mini" onclick="openBranch()">+ إضافة فرع</button></div><div class="branch-grid">${state.branches.map(b=>`<div class="branch-card"><div class="branch-photo">${b.img?`<img src="${b.img}" alt="${b.name}">`:``}</div><h3>${b.name} <span class="status ${cls(b.status)}">${statusText(b.status)}</span></h3><p class="muted">المنطقة: ${b.area}<br>المنتجات: ${state.products.filter(p=>p.branch===b.name||p.branch==='كل الفروع').length}</p><div class="actions-row"><button class="btn secondary mini" onclick="openBranch(${b.id})">تعديل</button><button class="btn warn mini" onclick="toggleBranch(${b.id})">${b.status==='active'?'إيقاف':'تفعيل'}</button><button class="btn danger mini" onclick="deleteBranch(${b.id})">حذف</button></div></div>`).join('')}</div></div>`}
-function openBranch(id){const b=id?state.branches.find(x=>x.id===id):{name:'',area:'',status:'active',img:''};const imgSrc=b.img||'';openModal(id?'تعديل فرع':'إضافة فرع',`<div class="form-grid"><div class="field"><label>اسم الفرع</label><input class="input" id="bName" value="${b.name}"></div><div class="field"><label>المنطقة</label><input class="input" id="bArea" value="${b.area}"></div><div class="field"><label>الحالة</label><select id="bStatus"><option value="active" ${b.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${b.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="bImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة الفرع">`:'فرع'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة الفرع</label><input class="image-hidden-input" id="bFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'bImg','bImgPreviewBox','فرع')"><input type="hidden" id="bImg" value="${imgSrc}"><label class="upload-label" for="bFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn danger mini" onclick="clearCompactImage('bImg','bImgPreviewBox','فرع')">حذف الصورة</button></div><small class="image-help">تظهر الصورة أعلى بطاقة الفرع بحجم خفيف ومرتب.</small></div></div><button class="btn wide" onclick="saveBranch(${id||0})">حفظ الفرع</button></div>`) }
-function saveBranch(id){let data={name:bName.value,area:bArea.value,status:bStatus.value,img:bImg.value};if(!data.name){toast('اكتب اسم الفرع');return}if(id){Object.assign(state.branches.find(x=>x.id===id),data);log('تعديل فرع','تم تعديل '+data.name)}else{state.branches.unshift({id:Date.now(),...data});log('إضافة فرع','تم إضافة '+data.name)}save();closeModal();render()}
+function branches(){const list=[...state.branches].sort((a,b)=>(a.order||0)-(b.order||0));return `<div class="panel"><div class="panel-head"><div><h2>إدارة الفروع</h2><p>إضافة وتعديل وإيقاف الفروع.</p></div><button class="btn mini" onclick="openBranch()">+ إضافة فرع</button></div><div class="branch-grid">${list.map(b=>`<div class="branch-card"><div class="branch-photo">${b.img?`<img src="${b.img}" alt="${b.name}">`:``}</div><h3>${b.name} <span class="status ${cls(b.status)}">${statusText(b.status)}</span></h3><p class="muted">الترتيب: ${b.order||0}<br>المنتجات: ${state.products.filter(p=>p.branch===b.name||p.branch==='كل الفروع').length}</p><div class="actions-row"><button class="btn secondary mini" onclick="openBranch(${b.id})">تعديل</button><button class="btn warn mini" onclick="toggleBranch(${b.id})">${b.status==='active'?'إيقاف':'تفعيل'}</button><button class="btn danger mini" onclick="deleteBranch(${b.id})">حذف</button></div></div>`).join('')}</div></div>`}
+function openBranch(id){const b=id?state.branches.find(x=>x.id===id):{name:'',area:'قسم السوق',status:'active',img:'',order:(state.branches||[]).length+1};const imgSrc=b.img||'';openModal(id?'تعديل فرع':'إضافة فرع',`<div class="form-grid"><div class="field"><label>اسم الفرع</label><input class="input" id="bName" value="${b.name}"></div><div class="field"><label>ترتيب الفرع</label><input class="input" id="bOrder" type="number" value="${b.order||1}"></div><div class="field"><label>الحالة</label><select id="bStatus"><option value="active" ${b.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${b.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="compact-image-picker"><div class="compact-image-preview" id="bImgPreviewBox">${imgSrc?`<img src="${imgSrc}" alt="صورة الفرع">`:'فرع'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة الفرع</label><input class="image-hidden-input" id="bFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'bImg','bImgPreviewBox','فرع')"><input type="hidden" id="bImg" value="${imgSrc}"><label class="upload-label" for="bFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn danger mini" onclick="clearCompactImage('bImg','bImgPreviewBox','فرع')">حذف الصورة</button></div><small class="image-help">تظهر الصورة أعلى بطاقة الفرع بحجم خفيف ومرتب.</small></div></div><button class="btn wide" onclick="saveBranch(${id||0})">حفظ الفرع</button></div>`) }
+function saveBranch(id){let data={name:bName.value,area:'قسم السوق',order:Number(bOrder.value)||1,status:bStatus.value,img:bImg.value};if(!data.name){toast('اكتب اسم الفرع');return}if(id){Object.assign(state.branches.find(x=>x.id===id),data);log('تعديل فرع','تم تعديل '+data.name)}else{state.branches.unshift({id:Date.now(),...data});log('إضافة فرع','تم إضافة '+data.name)}save();closeModal();render()}
 function quickWallet(id){
  const m=state.members.find(x=>x.id===id); if(!m){toast('لم يتم العثور على العضو');return;}
  openModal('إضافة رصيد',`<div class="form-grid"><div class="field wide"><label>العضو</label><input class="input" value="${m.name} - ${m.phone}" disabled></div><div class="field"><label>المبلغ</label><input class="input" id="qwAmount" type="number" placeholder="مثلاً 25000"></div><div class="field"><label>ملاحظة</label><input class="input" id="qwNote" placeholder="سبب الإضافة"></div><button class="btn wide" onclick="addWallet(${id})">إضافة الرصيد</button></div>`);
