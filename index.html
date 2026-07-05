@@ -216,6 +216,19 @@ html,body{width:100%;max-width:100%;overflow-x:hidden!important;overscroll-behav
 html,body{width:100%;max-width:100%;overflow-x:hidden!important;touch-action:pan-y;}
 .app,.layout,.content,.main,.topbar,.login-page{max-width:100%;overflow-x:hidden;}
 
+
+
+/* LINKO final image containment and stable action buttons */
+.image-preview,.compact-image-preview,.product-img,.branch-photo,.member-avatar{display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important}
+.image-preview img,.compact-image-preview img,.product-img img,.branch-photo img,.member-avatar img{max-width:100%!important;max-height:100%!important;width:auto!important;height:auto!important;object-fit:contain!important;object-position:center center!important;display:block!important;background:#fff!important}
+.image-preview{min-height:220px!important}
+.image-picker .image-actions .btn,.compact-image-picker .image-actions .btn{pointer-events:auto!important;position:relative!important;z-index:2!important}
+.upload-label{pointer-events:auto!important;position:relative!important;z-index:2!important}
+.linko-image-preview-layer{position:fixed;inset:0;z-index:5000;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(10px)}
+.linko-image-preview-card{width:min(94vw,900px);max-height:92vh;background:#fff;border-radius:24px;padding:14px;display:grid;gap:12px;box-shadow:0 30px 90px rgba(0,0,0,.35)}
+.linko-image-preview-card img{max-width:100%;max-height:76vh;width:auto;height:auto;object-fit:contain;justify-self:center;align-self:center;background:#fff;border-radius:16px}
+.linko-image-preview-card .btn{width:100%}
+
 </style>
 </head>
 <body>
@@ -778,6 +791,135 @@ window.searchRender = window.linkoStableSearch;
       window.pickImageFile(btn.getAttribute('data-image-pick'));
     }
   }, true);
+})();
+
+
+
+/* LINKO final image upload repair: no crop, working preview, working save */
+(function(){
+  function safeToast(msg){ try{ if(typeof toast==='function') toast(msg); }catch(e){} }
+  function byId(id){ return document.getElementById(id); }
+  function escAttr(v){ return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  window.linkoImagePreview = function(src){
+    if(!src){ safeToast('لا توجد صورة للمعاينة'); return; }
+    const old=byId('linkoImagePreviewLayer'); if(old) old.remove();
+    const layer=document.createElement('div');
+    layer.id='linkoImagePreviewLayer';
+    layer.className='linko-image-preview-layer';
+    layer.innerHTML='<div class="linko-image-preview-card"><img src="'+escAttr(src)+'" alt="معاينة الصورة"><button type="button" class="btn dark" id="linkoCloseImagePreview">إغلاق المعاينة</button></div>';
+    document.body.appendChild(layer);
+    layer.addEventListener('click',function(e){ if(e.target===layer || e.target.id==='linkoCloseImagePreview') layer.remove(); });
+  };
+
+  function setPreview(boxId, data, alt){
+    const box=byId(boxId);
+    if(box){ box.innerHTML='<img src="'+escAttr(data)+'" alt="'+escAttr(alt||'الصورة')+'">'; }
+  }
+
+  function compressImageFile(file, cb){
+    if(!file){ safeToast('لم يتم اختيار صورة'); return; }
+    if(!String(file.type||'').startsWith('image/')){ safeToast('اختر ملف صورة فقط'); return; }
+    if(file.size > 15*1024*1024){ safeToast('الصورة كبيرة جداً، اختر صورة أقل من 15MB'); return; }
+    const reader=new FileReader();
+    reader.onerror=function(){ safeToast('تعذر قراءة الصورة'); };
+    reader.onload=function(){
+      const original=reader.result;
+      const img=new Image();
+      img.onload=function(){
+        try{
+          const maxSide=1100;
+          let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+          const scale=Math.min(1, maxSide/Math.max(w,h));
+          const cw=Math.max(1, Math.round(w*scale));
+          const ch=Math.max(1, Math.round(h*scale));
+          const canvas=document.createElement('canvas');
+          canvas.width=cw; canvas.height=ch;
+          const ctx=canvas.getContext('2d');
+          ctx.clearRect(0,0,cw,ch);
+          ctx.drawImage(img,0,0,cw,ch);
+          let data;
+          try{ data=canvas.toDataURL('image/jpeg',0.86); }
+          catch(e){ data=original; }
+          cb(data);
+        }catch(e){ cb(original); }
+      };
+      img.onerror=function(){ cb(original); };
+      img.src=original;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function assignImage(inputId, boxId, file, label){
+    compressImageFile(file,function(data){
+      const input=byId(inputId); if(input) input.value=data;
+      setPreview(boxId,data,label||'الصورة');
+      safeToast('تم رفع الصورة بنجاح');
+    });
+  }
+
+  window.handleProductImageUpload=function(ev){ assignImage('pImg','pImgPreviewBox', ev?.target?.files?.[0], 'صورة المنتج'); };
+  window.handleCompactImageUpload=function(ev,inputId,boxId,label){ assignImage(inputId,boxId, ev?.target?.files?.[0], label||'الصورة'); };
+  window.previewProductImage=function(){ linkoImagePreview(byId('pImg')?.value||''); };
+  window.previewProductImageFull=window.previewProductImage;
+  window.previewCompactImage=function(inputId){ linkoImagePreview(byId(inputId)?.value||''); };
+  window.clearProductImage=function(){
+    const input=byId('pImg'); if(input) input.value='';
+    const file=byId('pFile'); if(file) file.value='';
+    const box=byId('pImgPreviewBox'); if(box) box.innerHTML='<span id="pImgPlaceholder">صورة المنتج</span>';
+    safeToast('تم حذف الصورة');
+  };
+  window.clearCompactImage=function(inputId,boxId,label){
+    const input=byId(inputId); if(input) input.value='';
+    const box=byId(boxId); if(box) box.textContent=label||'صورة';
+    const fileId=inputId==='bImg'?'bFile':(inputId==='mImg'?'mFile':(inputId==='sLogo'?'sLogoFile':''));
+    const file=fileId?byId(fileId):null; if(file) file.value='';
+    safeToast('تم حذف الصورة');
+  };
+  window.pickImageFile=function(targetId){ const input=byId(targetId); if(input){ input.value=''; input.click(); } else safeToast('زر اختيار الصورة غير جاهز'); };
+
+  document.addEventListener('click',function(e){
+    const btn=e.target?.closest?.('[data-image-pick]');
+    if(!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    pickImageFile(btn.getAttribute('data-image-pick'));
+  },true);
+  document.addEventListener('change',function(e){
+    const t=e.target;
+    if(!t || !t.files || !t.id) return;
+    if(t.id==='pFile') assignImage('pImg','pImgPreviewBox',t.files[0],'صورة المنتج');
+    if(t.id==='bFile') assignImage('bImg','bImgPreviewBox',t.files[0],'صورة الفرع');
+    if(t.id==='mFile') assignImage('mImg','mImgPreviewBox',t.files[0],'صورة العضو');
+    if(t.id==='sLogoFile') assignImage('sLogo','sLogoPreviewBox',t.files[0],'شعار الموقع');
+  },true);
+
+  const oldSave = window.save || save;
+  window.save=function(){
+    try{ localStorage.setItem(LS,JSON.stringify(state)); return true; }
+    catch(e){ safeToast('تعذر الحفظ: الصورة كبيرة أو مساحة التخزين ممتلئة'); return false; }
+  };
+
+  window.saveProduct=function(id){
+    const data={name:(byId('pName')?.value||'').trim(),branch:byId('pBranch')?.value||'كل الفروع',group:(byId('pGroup')?.value||'').trim(),status:byId('pStatus')?.value||'available',order:Number(byId('pOrder')?.value)||1,img:byId('pImg')?.value||''};
+    if(!data.name){ safeToast('اكتب اسم المنتج'); return; }
+    if(id){ const p=(state.products||[]).find(x=>String(x.id)===String(id)); if(p) Object.assign(p,data); }
+    else{ (state.products=state.products||[]).unshift({id:Date.now(),...data}); }
+    if(window.save()!==false){ try{log(id?'تعديل منتج':'إضافة منتج',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); safeToast('تم حفظ المنتج'); render(); }
+  };
+  window.saveBranch=function(id){
+    const data={name:(byId('bName')?.value||'').trim(),icon:byId('bIcon')?.value||'storefront',order:Number(byId('bOrder')?.value)||1,status:byId('bStatus')?.value||'visible',img:byId('bImg')?.value||''};
+    if(!data.name){ safeToast('اكتب اسم الفرع'); return; }
+    if(id){ const b=(state.branches||[]).find(x=>String(x.id)===String(id)); if(b) Object.assign(b,data); }
+    else{ (state.branches=state.branches||[]).unshift({id:Date.now(),...data}); }
+    if(window.save()!==false){ try{log(id?'تعديل فرع':'إضافة فرع',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); safeToast('تم حفظ الفرع'); render(); }
+  };
+  window.saveMember=function(id){
+    const data={name:(byId('mName')?.value||'').trim(),phone:(byId('mPhone')?.value||'').trim(),area:byId('mArea')?.value||'',code:byId('mCode')?.value||'',balance:Number(byId('mBalance')?.value)||0,status:byId('mStatus')?.value||'active',img:byId('mImg')?.value||''};
+    if(!data.name||!data.phone){ safeToast('أكمل الاسم والهاتف'); return; }
+    if(id){ const m=(state.members||[]).find(x=>String(x.id)===String(id)); if(m) Object.assign(m,data); }
+    else{ (state.members=state.members||[]).unshift({id:Date.now(),...data}); }
+    if(window.save()!==false){ try{log(id?'تعديل عضو':'إضافة عضو',(id?'تم تعديل ':'تم إضافة ')+data.name)}catch(e){} closeModal(); safeToast('تم حفظ العضو'); render(); }
+  };
 })();
 
 initTheme();buildNav();render();
