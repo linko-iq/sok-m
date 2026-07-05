@@ -195,10 +195,10 @@ body.theme-dark .image-preview{background:#0f172a!important;border-color:#263244
     </div>
     <h1>لوحة إدارة سوق المدينة الكبير</h1>
     <p>دخول الإدارة للتحكم بالطلبات، الأعضاء، المنتجات، الفروع، الرصيد، والتقارير.</p>
-    <div class="field"><label>اسم المستخدم أو اللقب</label><input class="input" id="loginUser" value="admin" autocomplete="username"></div>
-    <div class="field"><label>كلمة المرور</label><input class="input" id="loginPass" value="123456" type="password" autocomplete="current-password"></div>
+    <div class="field"><label>اسم المستخدم أو اللقب</label><input class="input" id="loginUser" autocomplete="username"></div>
+    <div class="field"><label>كلمة المرور</label><input class="input" id="loginPass" type="password" autocomplete="current-password"></div>
     <button class="btn full" onclick="loginAdmin()">دخول لوحة الإدارة</button>
-    <div class="hint">للتجربة: admin / 123456</div>
+    
   </div>
 </section>
 <div class="app" id="app">
@@ -239,7 +239,7 @@ function initTheme(){applyTheme(localStorage.getItem(THEME_LS)||'light')}
 
 const sections=[['dashboard','dashboard','الرئيسية Dashboard','نظرة سريعة على حالة النظام اليوم.'],['subscriptions','assignment_add','طلبات الاشتراك','مراجعة طلبات الاشتراك الجديدة والموافقة أو الرفض.'],['purchaseOrders','receipt_long','طلبات الشراء','متابعة طلبات الأعضاء القادمة من واجهة الأعضاء.'],['members','groups','إدارة الأعضاء','بحث وتعديل بيانات الأعضاء والرصيد والحالة.'],['products','shopping_cart','إدارة المنتجات','إضافة وتعديل وحذف المنتجات والتحكم بالحالة والبيع.'],['branches','storefront','إدارة الفروع','إدارة فروع السوق والأقسام المرتبطة بها.'],['reports','monitoring','التقارير','إحصائيات الطلبات والأعضاء والمنتجات والفروع.'],['notifications','notifications','الإشعارات','إرسال إشعارات عامة أو مخصصة وسجل الإرسال.'],['logs','receipt_long','سجل العمليات','تتبع كل عملية مهمة داخل النظام.'],['settings','settings','إعدادات النظام','إعدادات عامة للهوية والعملة والواتساب.']];
 let active='dashboard', state=loadState();
-function seed(){return{settings:{market:'سوق المدينة الكبير',whatsapp:'9647887624967',currency:'د.ع'},requests:[{id:1,name:'حسين علي',phone:'07700000000',area:'المنصور',code:'1122',status:'pending',date:'اليوم'},{id:2,name:'علي جبار',phone:'07800000000',area:'الكرادة',code:'3344',status:'pending',date:'اليوم'}],members:[{id:101,name:'محمد كريم',phone:'07711111111',area:'زيونة',code:'4455',balance:25000,status:'active',img:''},{id:102,name:'زينب أحمد',phone:'07822222222',area:'الأعظمية',code:'7788',balance:0,status:'stopped',img:''}],products:[{id:201,name:'رز عنبر',price:2500,cat:'المواد الغذائية',branch:'كل الفروع',status:'available',sell:'بالوزن',qty:'1 كغم',badge:'جديد',img:''},{id:202,name:'زيت طبخ',price:18000,cat:'المواد الغذائية',branch:'كل الفروع',status:'available',sell:'بالكرتون',qty:'12 قطعة',badge:'عرض',img:''},{id:203,name:'عصير برتقال',price:1500,cat:'المشروبات',branch:'فرع الكرادة',status:'unavailable',sell:'بالحجم',qty:'1 لتر',badge:'',img:''}],branches:[{id:301,name:'فرع المنصور',area:'المنصور',status:'active',img:''},{id:302,name:'فرع الكرادة',area:'الكرادة',status:'active',img:''},{id:303,name:'فرع زيونة',area:'زيونة',status:'active',img:''}],notifications:[],logs:[{id:1,type:'تهيئة النظام',by:'admin',time:new Date().toLocaleString('ar-IQ'),details:'تم تشغيل نسخة لوحة الإدارة الوظيفية.'}],orders:[{id:1,branch:'فرع المنصور',total:0,status:'new'},{id:2,branch:'فرع الكرادة',total:0,status:'new'}]}}
+function seed(){return{settings:{market:'سوق المدينة الكبير',whatsapp:'9647887624967',instagram:'https://www.instagram.com/medina__bazaar?igsh=MXY3Z3h5ZDV3ejl0aA%3D%3D&utm_source=qr',tiktok:'https://www.tiktok.com/@medina_bazaar?_r=1&_t=ZS-97mCEKI4ubn',deliveryMorningStart:'08:00',deliveryMorningEnd:'12:00',deliveryEveningStart:'16:00',deliveryEveningEnd:'20:00',deliveryPrice:'حسب المسافة',logo:''},requests:[],members:[],products:[],branches:[],notifications:[],logs:[{id:1,type:'تهيئة النظام',by:'admin',time:new Date().toLocaleString('ar-IQ'),details:'تم تشغيل لوحة الإدارة.'}],orders:[],dataRequests:[],adminMessages:[]}}
 function normalizeState(data){
  const base=seed();
  data=data||base;
@@ -279,9 +279,9 @@ function createAdminMessage(type,title,details,extra={}){
  toast('وصل طلب جديد للإدارة: '+title);
  render();
 }
-function demoCreditRequest(){const m=state.members[0];if(!m){toast('لا يوجد عضو للتجربة');return}createAdminMessage('credit_request','طلب تعديل رصيد',`العضو ${m.name} طلب إضافة رصيد بقيمة ${money(25000)}.`,{memberId:m.id,memberName:m.name,amount:25000,source:'member'});}
-function demoStopRequest(){const m=state.members[1]||state.members[0];if(!m){toast('لا يوجد عضو للتجربة');return}createAdminMessage('stop_request','طلب توقيف عضو',`العضو ${m.name} أرسل طلب توقيف أو مراجعة حالة العضوية.`,{memberId:m.id,memberName:m.name,source:'member'});}
-function demoSubscriptionMessage(){const r={id:Date.now(),name:'طلب اشتراك تجريبي',phone:'07712345678',area:'اختبار',code:'NEW'+Math.floor(Math.random()*99),status:'pending',date:'الآن'};state.requests.unshift(r);createAdminMessage('subscription_request','طلب اشتراك جديد',`وصل طلب اشتراك جديد من ${r.name} - ${r.phone}.`,{source:'subscription'});}
+function demoCreditRequest(){toast('لا توجد عملية مطلوبة')}
+function demoStopRequest(){toast('لا توجد عملية مطلوبة')}
+function demoSubscriptionMessage(){toast('لا توجد عملية مطلوبة')}
 function statusText(s){return s==='pending'?'بانتظار':s==='approved'?'مقبول':s==='rejected'?'مرفوض':s==='active'?'مفعل':s==='stopped'?'موقوف':s==='available'?'متوفر':'غير متوفر'}
 function cls(v){return ['approved','active','available','مفعل','مقبول','متوفر'].includes(v)?'ok':['pending','بانتظار'].includes(v)?'wait':'bad'}
 function money(n){return Number(n||0).toLocaleString('ar-IQ')+' '+state.settings.currency}
@@ -298,66 +298,9 @@ function openMember(id){const m=id?state.members.find(x=>x.id===id):{name:'',pho
 function saveMember(id){let data={name:mName.value,phone:mPhone.value,area:mArea.value,code:mCode.value,balance:+mBalance.value||0,status:mStatus.value,img:mImg.value};if(!data.name||!data.phone){toast('أكمل الاسم والهاتف');return}if(id){Object.assign(state.members.find(x=>x.id===id),data);log('تعديل عضو','تم تعديل '+data.name)}else{state.members.unshift({id:Date.now(),...data});log('إضافة عضو','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ العضو');render()}
 function toggleMember(id){let m=state.members.find(x=>x.id===id);m.status=m.status==='active'?'stopped':'active';log('تغيير حالة عضو','تم تغيير حالة '+m.name);save();render()}
 function deleteMember(id){if(confirm('تأكيد حذف العضو؟')){let m=state.members.find(x=>x.id===id);state.members=state.members.filter(x=>x.id!==id);log('حذف عضو','تم حذف '+(m?.name||''));save();render()}}
-function products(){let q=($('prodSearch')?.value||'');let list=state.products.filter(p=>!q||[p.name,p.cat,p.branch,p.status].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>إدارة المنتجات</h2><p>إضافة وتعديل وحذف وتغيير حالة المنتج.</p></div><button class="btn mini" onclick="openProduct()">+ إضافة منتج</button></div><div class="tools"><input class="input" id="prodSearch" oninput="render()" value="${q}" placeholder="بحث عن منتج"><select><option>كل الأقسام</option><option>المواد الغذائية</option><option>المشروبات</option></select><select><option>متوفر وغير متوفر</option></select><button class="btn secondary" onclick="render()">فلترة</button></div><div class="cards">${list.map(productCard).join('')}</div></div>`}
-function productCard(p){return `<div class="product-card"><div class="product-img">${p.img?`<img src="${p.img}">`:'<span class="material-symbols-rounded">shopping_cart</span>'}</div><div><h3>${p.name} ${p.badge?`<span class="status info">${p.badge}</span>`:''}</h3><p class="muted">${p.cat} • ${p.branch} • ${p.sell} • ${p.qty}</p><b>${money(p.price)}</b> <span class="status ${cls(p.status)}">${statusText(p.status)}</span></div><div class="actions-row"><button class="btn secondary mini" onclick="openProduct(${p.id})">تعديل</button><button class="btn warn mini" onclick="toggleProduct(${p.id})">الحالة</button><button class="btn danger mini" onclick="deleteProduct(${p.id})">حذف</button></div></div>`}
-function openProduct(id){
- const p=id?state.products.find(x=>x.id===id):{name:'',price:0,cat:'المواد الغذائية',branch:'كل الفروع',status:'available',sell:'بالوزن',qty:'1 كغم',badge:'',img:''};
- const imgSrc=p.img||'';
- openModal(id?'تعديل منتج':'إضافة منتج',`<div class="form-grid"><div class="field"><label>اسم المنتج</label><input class="input" id="pName" value="${p.name}"></div><div class="field"><label>السعر</label><input class="input" id="pPrice" type="number" value="${p.price}"></div><div class="field"><label>القسم</label><select id="pCat">${['المواد الغذائية','المشروبات','المنظفات','اللحوم','الخضار','المطاعم'].map(x=>`<option ${p.cat===x?'selected':''}>${x}</option>`)}</select></div><div class="field"><label>الفرع</label><select id="pBranch"><option ${p.branch==='كل الفروع'?'selected':''}>كل الفروع</option>${state.branches.map(b=>`<option ${p.branch===b.name?'selected':''}>${b.name}</option>`)}</select></div><div class="field"><label>الحالة</label><select id="pStatus"><option value="available" ${p.status==='available'?'selected':''}>متوفر</option><option value="unavailable" ${p.status==='unavailable'?'selected':''}>غير متوفر</option></select></div><div class="field"><label>نوع البيع</label><select id="pSell">${['بالوزن','بالحجم','بالقطعة','بالعدد','بالكرتون'].map(x=>`<option ${p.sell===x?'selected':''}>${x}</option>`)}</select></div><div class="field"><label>الكمية المعروضة</label><select id="pQty">${['250 غرام','500 غرام','1 كغم','330 مل','1 لتر','قطعة واحدة','6 قطع','12 قطعة','24 قطعة'].map(x=>`<option ${p.qty===x?'selected':''}>${x}</option>`)}</select></div><div class="field"><label>شارة المنتج</label><select id="pBadge"><option value="">بدون</option>${['جديد','عرض','الأكثر طلباً'].map(x=>`<option ${p.badge===x?'selected':''}>${x}</option>`)}</select></div><div class="image-picker"><div class="image-preview" id="pImgPreviewBox">${imgSrc?`<img id="pImgPreview" src="${imgSrc}">`:`<span id="pImgPlaceholder">صورة المنتج</span>`}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة المنتج</label><input class="input image-url-box" id="pImg" value="${imgSrc}" placeholder="رابط الصورة أو ارفع صورة من جهازك"><input class="image-hidden-input" id="pFile" type="file" accept="image/*" onchange="handleProductImageUpload(event)"><label class="upload-label" for="pFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة من الجهاز</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewProductImageFull()">معاينة كاملة</button><button type="button" class="btn danger mini" onclick="clearProductImage()">حذف الصورة</button></div><small class="image-help">النظام يرتّب الصورة تلقائياً داخل إطار موحّد بدون قص أو تشويه، ويضيف فراغاً نظيفاً عند الحاجة حتى تظهر كاملة.</small></div></div><button class="btn wide" onclick="saveProduct(${id||0})">حفظ المنتج</button></div>`)
-}
-function makeCompactImage(src,done){
- const img=new Image();
- img.onload=()=>{
-  const outW=600,outH=600;
-  const canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
-  const ctx=canvas.getContext('2d');
-  const grd=ctx.createLinearGradient(0,0,outW,outH);grd.addColorStop(0,'#ffffff');grd.addColorStop(1,'#f8fafc');ctx.fillStyle=grd;ctx.fillRect(0,0,outW,outH);
-  const pad=36;
-  const scale=Math.min((outW-pad*2)/img.width,(outH-pad*2)/img.height);
-  const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
-  const x=Math.round((outW-w)/2), y=Math.round((outH-h)/2);
-  ctx.drawImage(img,x,y,w,h);
-  done(canvas.toDataURL('image/jpeg',0.86));
- };
- img.onerror=()=>toast('تعذر قراءة الصورة');
- img.src=src;
-}
-function handleCompactImageUpload(ev,inputId,boxId,placeholder){
- const file=ev.target.files&&ev.target.files[0]; if(!file)return;
- if(!file.type.startsWith('image/')){toast('اختر ملف صورة فقط');return;}
- if(file.size>8*1024*1024){toast('الصورة كبيرة جداً');return;}
- const reader=new FileReader();
- reader.onload=e=>makeCompactImage(e.target.result,(data)=>{
-  const input=document.getElementById(inputId); if(input)input.value=data;
-  const box=document.getElementById(boxId); if(box)box.innerHTML=`<img src="${data}" alt="صورة">`;
-  toast('تم ترتيب الصورة');
- });
- reader.readAsDataURL(file);
-}
-function clearCompactImage(inputId,boxId,placeholder){
- const input=document.getElementById(inputId); if(input)input.value='';
- const box=document.getElementById(boxId); if(box)box.textContent=placeholder||'صورة';
- toast('تم حذف الصورة');
-}
-function makeContainedProductImage(src,done){
- const img=new Image();
- img.onload=()=>{
-  const outW=1200,outH=900;
-  const canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,outW,outH);
-  // خلفية خفيفة احترافية حتى الصور الشفافة أو الشعارات تبقى واضحة
-  const grd=ctx.createLinearGradient(0,0,outW,outH);grd.addColorStop(0,'#ffffff');grd.addColorStop(1,'#f8fafc');ctx.fillStyle=grd;ctx.fillRect(0,0,outW,outH);
-  const pad=70;
-  const scale=Math.min((outW-pad*2)/img.width,(outH-pad*2)/img.height);
-  const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
-  const x=Math.round((outW-w)/2), y=Math.round((outH-h)/2);
-  ctx.drawImage(img,x,y,w,h);
-  done(canvas.toDataURL('image/jpeg',0.88));
- };
- img.onerror=()=>toast('تعذر قراءة الصورة');
- img.src=src;
-}
+function products(){let q=($('prodSearch')?.value||'');let list=(state.products||[]).filter(p=>!q||[p.name,p.group,p.branch,p.status].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>إدارة المنتجات</h2><p>هيكل المنتج: اسم، فرع، مجموعة، صورة، حالة، وترتيب.</p></div><button class="btn mini" onclick="openProduct()">+ إضافة منتج</button></div><div class="tools"><input class="input" id="prodSearch" oninput="render()" value="${q}" placeholder="بحث عن منتج"><button class="btn secondary" onclick="render()">فلترة</button></div><div class="cards">${list.map(productCard).join('')}</div></div>`}
+function productCard(p){return `<div class="product-card"><div class="product-img">${p.img?`<img src="${p.img}">`:'<span class="material-symbols-rounded">shopping_cart</span>'}</div><div><h3>${p.name} <span class="status ${cls(p.status)}">${statusText(p.status)}</span></h3><p class="muted">${p.branch}${p.group?' • '+p.group:''} • الترتيب: ${p.order||0}</p></div><div class="actions-row"><button class="btn secondary mini" onclick="openProduct(${p.id})">تعديل</button><button class="btn warn mini" onclick="toggleProduct(${p.id})">الحالة</button><button class="btn danger mini" onclick="deleteProduct(${p.id})">حذف</button></div></div>`}
+function openProduct(id){const p=id?state.products.find(x=>x.id===id):{name:'',branch:'كل الفروع',group:'',status:'available',order:(state.products||[]).length+1,img:''};const imgSrc=p.img||'';openModal(id?'تعديل منتج':'إضافة منتج',`<div class="form-grid"><div class="field"><label>اسم المنتج</label><input class="input" id="pName" value="${p.name}"></div><div class="field"><label>الفرع</label><select id="pBranch"><option ${p.branch==='كل الفروع'?'selected':''}>كل الفروع</option>${state.branches.map(b=>`<option ${p.branch===b.name?'selected':''}>${b.name}</option>`).join('')}</select></div><div class="field"><label>المجموعة</label><input class="input" id="pGroup" value="${p.group||''}"></div><div class="field"><label>الحالة</label><select id="pStatus"><option value="available" ${p.status==='available'?'selected':''}>متوفر</option><option value="unavailable" ${p.status==='unavailable'?'selected':''}>غير متوفر</option></select></div><div class="field"><label>ترتيب المنتج</label><input class="input" id="pOrder" type="number" value="${p.order||1}"></div><div class="image-picker"><div class="image-preview" id="pImgPreviewBox">${imgSrc?`<img id="pImgPreview" src="${imgSrc}">`:`<span id="pImgPlaceholder">صورة المنتج</span>`}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة المنتج</label><input class="input image-url-box" id="pImg" value="${imgSrc}"><input class="image-hidden-input" id="pFile" type="file" accept="image/*" onchange="handleProductImageUpload(event)"><label class="upload-label" for="pFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة من الجهاز</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewProductImage()">معاينة</button><button type="button" class="btn danger mini" onclick="clearProductImage()">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div><button class="btn wide" onclick="saveProduct(${id||0})">حفظ المنتج</button></div>`) }
 function handleProductImageUpload(ev){
  const file=ev.target.files&&ev.target.files[0]; if(!file)return;
  if(!file.type.startsWith('image/')){toast('اختر ملف صورة فقط');return;}
@@ -384,7 +327,7 @@ function previewProductImageFull(){
  const w=window.open('','_blank');
  if(w){w.document.write(`<html dir="rtl"><head><title>معاينة الصورة</title><style>body{margin:0;background:#0b1220;display:grid;place-items:center;min-height:100vh}img{max-width:96vw;max-height:96vh;object-fit:contain;background:#fff;border-radius:18px;padding:12px}</style></head><body><img src="${src}"></body></html>`);w.document.close();}
 }
-function saveProduct(id){let data={name:pName.value,price:+pPrice.value||0,cat:pCat.value,branch:pBranch.value,status:pStatus.value,sell:pSell.value,qty:pQty.value,badge:pBadge.value,img:pImg.value};if(!data.name){toast('اكتب اسم المنتج');return}if(id){Object.assign(state.products.find(x=>x.id===id),data);log('تعديل منتج','تم تعديل '+data.name)}else{state.products.unshift({id:Date.now(),...data});log('إضافة منتج','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ المنتج');render()}
+function saveProduct(id){let data={name:pName.value.trim(),branch:pBranch.value,group:pGroup.value.trim(),status:pStatus.value,order:Number(pOrder.value)||1,img:pImg.value};if(!data.name){toast('اكتب اسم المنتج');return}if(id){Object.assign(state.products.find(x=>x.id===id),data);log('تعديل منتج','تم تعديل '+data.name)}else{state.products.unshift({id:Date.now(),...data});log('إضافة منتج','تم إضافة '+data.name)}save();closeModal();toast('تم حفظ المنتج');render()}
 function toggleProduct(id){let p=state.products.find(x=>x.id===id);p.status=p.status==='available'?'unavailable':'available';log('تغيير حالة منتج','تم تغيير حالة '+p.name);save();render()}
 function deleteProduct(id){if(confirm('تأكيد حذف المنتج؟')){let p=state.products.find(x=>x.id===id);state.products=state.products.filter(x=>x.id!==id);log('حذف منتج','تم حذف '+(p?.name||''));save();render()}}
 function branches(){return `<div class="panel"><div class="panel-head"><div><h2>إدارة الفروع</h2><p>إضافة وتعديل وإيقاف الفروع.</p></div><button class="btn mini" onclick="openBranch()">+ إضافة فرع</button></div><div class="branch-grid">${state.branches.map(b=>`<div class="branch-card"><div class="branch-photo">${b.img?`<img src="${b.img}" alt="${b.name}">`:``}</div><h3>${b.name} <span class="status ${cls(b.status)}">${statusText(b.status)}</span></h3><p class="muted">المنطقة: ${b.area}<br>المنتجات: ${state.products.filter(p=>p.branch===b.name||p.branch==='كل الفروع').length}</p><div class="actions-row"><button class="btn secondary mini" onclick="openBranch(${b.id})">تعديل</button><button class="btn warn mini" onclick="toggleBranch(${b.id})">${b.status==='active'?'إيقاف':'تفعيل'}</button><button class="btn danger mini" onclick="deleteBranch(${b.id})">حذف</button></div></div>`).join('')}</div></div>`}
@@ -400,7 +343,7 @@ function reports(){let most=state.products[0]?.name||'لا يوجد';return `<di
 function notifications(){
  const pending=(state.adminMessages||[]).filter(x=>x.status==='pending');
  const done=(state.adminMessages||[]).filter(x=>x.status!=='pending');
- return `<div class="panel"><div class="panel-head"><div><h2>صندوق طلبات الإدارة</h2><p>هنا تظهر طلبات الأعضاء مثل تعديل الرصيد، توقيف العضوية، وطلبات الاشتراك.</p></div><span class="status ${pendingAdmin()?'bad':'ok'}">${pendingAdmin()} بانتظار</span></div><div class="actions-row" style="margin-bottom:12px"><button class="btn mini" onclick="demoCreditRequest()">تجربة طلب رصيد</button><button class="btn warn mini" onclick="demoStopRequest()">تجربة طلب توقيف</button><button class="btn blue mini" onclick="demoSubscriptionMessage()">تجربة طلب اشتراك</button></div><div class="cards">${pending.length?pending.map(adminRequestCard).join(''):'<div class="empty">لا توجد طلبات إدارية بانتظار المعالجة</div>'}</div></div><div class="panel"><div class="panel-head"><div><h2>الإشعارات</h2><p>إرسال إشعار عام أو مخصص.</p></div></div><div class="form-grid"><div class="field"><label>نوع الإرسال</label><select id="nType"><option>عام</option><option>فرع معين</option><option>عضو معين</option></select></div><div class="field"><label>العنوان</label><input class="input" id="nTitle"></div><div class="field wide"><label>نص الإشعار</label><textarea id="nText"></textarea></div><button class="btn wide" onclick="sendNotification()">إرسال الإشعار</button></div></div><div class="panel"><h2>سجل الإشعارات والطلبات المعالجة</h2><div class="timeline">${[...state.notifications,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',time:x.time}))].length?[...state.notifications,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',time:x.time}))].map(n=>`<div class="log"><h3>${n.title}</h3><p>${n.text}<br><span class="muted">${n.type} • ${n.time}</span></p></div>`).join(''):'<div class="empty">لا توجد إشعارات أو طلبات</div>'}</div></div>`
+ return `<div class="panel"><div class="panel-head"><div><h2>صندوق طلبات الإدارة</h2><p>طلبات عامة تحتاج متابعة الإدارة.</p></div><span class="status ${pendingAdmin()?'bad':'ok'}">${pendingAdmin()} بانتظار</span></div><div class="cards">${pending.length?pending.map(adminRequestCard).join(''):'<div class="empty">لا توجد طلبات إدارية بانتظار المعالجة</div>'}</div></div><div class="panel"><div class="panel-head"><div><h2>الإشعارات</h2><p>إرسال إشعار عام أو مخصص.</p></div></div><div class="form-grid"><div class="field"><label>نوع الإرسال</label><select id="nType"><option>عام</option><option>فرع معين</option><option>عضو معين</option></select></div><div class="field"><label>العنوان</label><input class="input" id="nTitle"></div><div class="field wide"><label>نص الإشعار</label><textarea id="nText"></textarea></div><button class="btn wide" onclick="sendNotification()">إرسال الإشعار</button></div></div><div class="panel"><h2>سجل الإشعارات والطلبات المعالجة</h2><div class="timeline">${[...state.notifications,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',time:x.time}))].length?[...state.notifications,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',time:x.time}))].map(n=>`<div class="log"><h3>${n.title}</h3><p>${n.text}<br><span class="muted">${n.type} • ${n.time}</span></p></div>`).join(''):'<div class="empty">لا توجد إشعارات أو طلبات</div>'}</div></div>`
 }
 function adminRequestCard(r){return `<div class="admin-request unread"><div class="req-top"><h3>${r.title} <span class="status wait">بانتظار</span></h3><small class="muted">${r.time}</small></div><p>${r.details}</p>${r.memberName?`<p><b>العضو:</b> ${r.memberName}</p>`:''}<div class="actions-row"><button class="btn mini" onclick="approveAdminRequest(${r.id})">موافقة</button><button class="btn warn mini" onclick="rejectAdminRequest(${r.id})">رفض</button><button class="btn danger mini" onclick="deleteAdminRequest(${r.id})">حذف</button></div></div>`}
 function approveAdminRequest(id){const r=(state.adminMessages||[]).find(x=>x.id===id);if(!r)return;if(r.type==='credit_request'&&r.memberId){const m=state.members.find(x=>x.id===r.memberId);if(m){m.balance+=(+r.amount||0);}}
@@ -469,6 +412,123 @@ function closeModal(){$('modal').classList.remove('show')}
   window.updateOrderStatus=function(id,status){let o=(state.orders||[]).find(x=>String(x.id)===String(id));if(o){o.status=status;log('تغيير حالة طلب','تم تغيير حالة الطلب '+(o.orderNumber||id)+' إلى '+status);save();toast('تم تحديث حالة الطلب');render()}}
   window.settings=function(){const s=state.settings||{};return `<div class="panel"><div class="panel-head"><div><h2>إعدادات النظام</h2><p>إعدادات عامة متوافقة مع واجهة الأعضاء.</p></div></div><div class="form-grid"><div class="field"><label>اسم السوق</label><input class="input" id="sMarket" value="${esc(s.market||'')}"></div><div class="field"><label>رقم واتساب استقبال الطلبات</label><input class="input" id="sWhats" value="${esc(s.whatsapp||'')}"></div><div class="field"><label>رابط إنستغرام</label><input class="input" id="sInstagram" value="${esc(s.instagram||'')}"></div><div class="field"><label>رابط تيك توك</label><input class="input" id="sTiktok" value="${esc(s.tiktok||'')}"></div><div class="field"><label>توصيل صباحاً من</label><input class="input" id="sMorningStart" value="${esc(s.deliveryMorningStart||'08:00')}"></div><div class="field"><label>توصيل صباحاً إلى</label><input class="input" id="sMorningEnd" value="${esc(s.deliveryMorningEnd||'12:00')}"></div><div class="field"><label>توصيل مساءً من</label><input class="input" id="sEveningStart" value="${esc(s.deliveryEveningStart||'16:00')}"></div><div class="field"><label>توصيل مساءً إلى</label><input class="input" id="sEveningEnd" value="${esc(s.deliveryEveningEnd||'20:00')}"></div><div class="field"><label>سعر/ملاحظة التوصيل</label><input class="input" id="sDeliveryPrice" value="${esc(s.deliveryPrice||'حسب المسافة')}"></div><div class="field wide"><label>شعار الموقع</label><input class="input" id="sLogo" value="${esc(s.logo||'')}" placeholder="رابط أو Base64 لاحقاً"></div><button class="btn wide" onclick="saveSettings()">حفظ الإعدادات</button></div></div><div class="panel danger-zone"><h2>منطقة خطرة</h2><p class="muted">إعادة تعيين بيانات التجربة فقط.</p><button class="btn danger" onclick="resetData()">إعادة تعيين البيانات</button></div>`}
   window.saveSettings=function(){state.settings={...(state.settings||{}),market:sMarket.value,whatsapp:sWhats.value,instagram:sInstagram.value,tiktok:sTiktok.value,deliveryMorningStart:sMorningStart.value,deliveryMorningEnd:sMorningEnd.value,deliveryEveningStart:sEveningStart.value,deliveryEveningEnd:sEveningEnd.value,deliveryPrice:sDeliveryPrice.value,logo:sLogo.value};localStorage.setItem('linko_market_public_settings',JSON.stringify(state.settings));log('تعديل إعدادات','تم حفظ إعدادات النظام');save();toast('تم حفظ الإعدادات');render()}
+})();
+
+
+/* ===== LINKO FINAL ADMIN REVIEW PATCH BEFORE FIREBASE ===== */
+(function(){
+  function esc2(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+  function orderStatusIsNew(s){return s==='new'||s==='جديد'||!s}
+  function pendingPurchase(){try{return (state.orders||[]).map(o=>typeof normalizeOrder==='function'?normalizeOrder(o,0):o).filter(o=>orderStatusIsNew(o.status)).length}catch(e){return 0}}
+  function pendingDataRequests(){return (state.dataRequests||[]).filter(x=>x.status==='pending'||x.status==='قيد المراجعة'||!x.status).length}
+  function sectionBadge(id){
+    const n=id==='subscriptions'?pendingReq():id==='purchaseOrders'?pendingPurchase():id==='dataRequests'?pendingDataRequests():id==='notifications'?pendingAdmin():0;
+    return n?` <span class="status bad">${n}</span>`:'';
+  }
+  function normalizeMemberRequest(r,i){
+    const m=(state.members||[]).find(x=>x.username===r.username||x.name===r.memberName||x.name===r.name)||{};
+    const type=r.type||r.title||'طلب تعديل بيانات';
+    return {
+      id:r.id||Date.now()+i,
+      type,
+      memberId:r.memberId||m.id||null,
+      memberName:r.memberName||r.name||m.name||'عضو',
+      memberUsername:r.memberUsername||r.username||m.username||'',
+      phone:r.phone||r.memberPhone||m.phone||'',
+      currentData:r.currentData||r.current||'حسب بيانات العضو الحالية',
+      newData:r.newData||r.text||r.details||'',
+      date:r.date||r.time||new Date().toLocaleString('ar-IQ'),
+      status:r.status||'pending'
+    };
+  }
+  function importMemberDataRequests(){
+    try{
+      const memberReqs=JSON.parse(localStorage.getItem('lm_requests')||'[]').map(normalizeMemberRequest);
+      const current=(state.dataRequests||[]).map(normalizeMemberRequest);
+      const map=new Map();
+      [...memberReqs,...current].forEach(r=>map.set(r.id+'-'+r.type+'-'+r.date,r));
+      state.dataRequests=[...map.values()];
+    }catch(e){state.dataRequests=state.dataRequests||[]}
+  }
+  function finalMigrate(){
+    state.settings={market:'سوق المدينة الكبير',whatsapp:'9647887624967',instagram:'https://www.instagram.com/medina__bazaar?igsh=MXY3Z3h5ZDV3ejl0aA%3D%3D&utm_source=qr',tiktok:'https://www.tiktok.com/@medina_bazaar?_r=1&_t=ZS-97mCEKI4ubn',deliveryMorningStart:'08:00',deliveryMorningEnd:'12:00',deliveryEveningStart:'16:00',deliveryEveningEnd:'20:00',deliveryPrice:'حسب المسافة',logo:'',marketAddress:'',...(state.settings||{})};
+    delete state.settings.currency;
+    state.products=(state.products||[]).map((p,i)=>({id:p.id||Date.now()+i,name:p.name||'',branch:p.branch||'كل الفروع',group:p.group||p.cat||'',img:p.img||'',status:p.status||'available',order:Number(p.order||i+1)}));
+    state.branches=(state.branches||[]).map((b,i)=>({id:b.id||Date.now()+i,name:b.name||'',icon:b.icon||'',img:b.img||'',order:Number(b.order||i+1),status:b.status==='active'||b.status==='visible'?'visible':(b.status==='hidden'?'hidden':'visible')}));
+    state.members=(state.members||[]).map((m,i)=>({id:m.id||Date.now()+i,img:m.img||'',name:m.name||'',username:m.username||m.code||'',phone:m.phone||'',address:m.address||m.area||'',balance:Number(m.balance||0),status:m.status||'active',createdAt:m.createdAt||new Date().toLocaleDateString('ar-IQ')}));
+    state.requests=(state.requests||[]).map((r,i)=>({id:r.id||Date.now()+i,name:r.name||'',username:r.username||r.code||'',phone:r.phone||'',address:r.address||r.area||'',date:r.date||new Date().toLocaleString('ar-IQ'),status:r.status||'pending'}));
+    importMemberDataRequests();
+    try{ if(typeof importMemberOrders==='function') importMemberOrders(); }catch(e){}
+    state.orders=(state.orders||[]).map((o,i)=> typeof normalizeOrder==='function'?normalizeOrder(o,i):o).map(o=>({...o,status:o.status==='new'?'جديد':(o.status||'جديد')}));
+    save();
+  }
+  finalMigrate();
+
+  const hasDataReq=sections.some(s=>s[0]==='dataRequests');
+  if(!hasDataReq){
+    const idx=sections.findIndex(s=>s[0]==='purchaseOrders');
+    sections.splice(idx+1,0,['dataRequests','manage_accounts','طلبات تعديل البيانات','مراجعة طلبات تعديل بيانات الأعضاء والموافقة أو الرفض.']);
+  }
+  window.buildNav=function(){ $('nav').innerHTML=sections.map(s=>`<button class="${s[0]===active?'active':''}" onclick="openSec('${s[0]}')"><span class="ico"><span class="material-symbols-rounded">${s[1]}</span></span>${s[2]}${sectionBadge(s[0])}</button>`).join('') }
+  window.render=function(){buildNav();let html=''; if(active==='dashboard')html=dashboard(); if(active==='subscriptions')html=subscriptions(); if(active==='purchaseOrders')html=purchaseOrders(); if(active==='dataRequests')html=dataRequests(); if(active==='members')html=members(); if(active==='products')html=products(); if(active==='branches')html=branches(); if(active==='reports')html=reports(); if(active==='notifications')html=notifications(); if(active==='logs')html=logs(); if(active==='settings')html=settings(); $('main').innerHTML=html}
+
+  window.dashboard=function(){
+    try{ if(typeof importMemberOrders==='function') importMemberOrders(); }catch(e){}
+    importMemberDataRequests();
+    const added=(state.logs||[]).filter(l=>l.type==='إضافة رصيد' && l.time?.includes(new Date().toLocaleDateString('ar-IQ'))).length;
+    const unavailable=(state.products||[]).filter(p=>p.status==='unavailable').length;
+    return `<div class="kpis"><div class="kpi" data-icon="assignment_add"><small>طلبات اشتراك جديدة</small><b>${pendingReq()}</b></div><div class="kpi" data-icon="receipt_long"><small>طلبات شراء جديدة</small><b>${pendingPurchase()}</b></div><div class="kpi" data-icon="manage_accounts"><small>طلبات تعديل بيانات</small><b>${pendingDataRequests()}</b></div><div class="kpi" data-icon="groups"><small>عدد الأعضاء</small><b>${(state.members||[]).length}</b></div><div class="kpi" data-icon="shopping_cart"><small>عدد المنتجات</small><b>${(state.products||[]).length}</b></div><div class="kpi" data-icon="storefront"><small>عدد الفروع</small><b>${(state.branches||[]).length}</b></div><div class="kpi" data-icon="account_balance_wallet"><small>عمليات رصيد اليوم</small><b>${added}</b></div><div class="kpi" data-icon="warning"><small>منتجات غير متوفرة</small><b>${unavailable}</b></div></div><div class="panel"><div class="panel-head"><div><h2>تنبيهات مهمة</h2><p>ملخص سريع لما يحتاج متابعة.</p></div></div><div class="timeline"><div class="log"><h3>طلبات اشتراك بانتظار الموافقة</h3><p>${pendingReq()} طلب يحتاج مراجعة.</p></div><div class="log"><h3>طلبات شراء جديدة</h3><p>${pendingPurchase()} طلب يحتاج متابعة.</p></div><div class="log"><h3>طلبات تعديل بيانات</h3><p>${pendingDataRequests()} طلب يحتاج قرار من الإدارة.</p></div></div></div>`
+  }
+
+  window.products=function(){let q=($('prodSearch')?.value||'');let list=[...(state.products||[])].sort((a,b)=>(a.order||0)-(b.order||0)).filter(p=>!q||[p.name,p.branch,p.group,p.status].join(' ').includes(q));return `<div class="panel"><div class="panel-head"><div><h2>إدارة المنتجات</h2><p>هيكل المنتج: اسم، فرع، مجموعة، صورة، حالة، وترتيب.</p></div><button class="btn mini" onclick="openProduct()">+ إضافة منتج</button></div><div class="tools"><input class="input" id="prodSearch" oninput="render()" value="${esc2(q)}" placeholder="بحث عن منتج"><select onchange="prodSearch.value=this.value;render()"><option value="">كل الفروع</option>${(state.branches||[]).map(b=>`<option value="${esc2(b.name)}">${esc2(b.name)}</option>`).join('')}</select><button class="btn secondary" onclick="render()">فلترة</button></div><div class="cards">${list.length?list.map(productCard).join(''):'<div class="empty">لا توجد منتجات</div>'}</div></div>`}
+
+  window.dataRequests=function(){
+    importMemberDataRequests();
+    let q=($('dataReqSearch')?.value||'');
+    let list=(state.dataRequests||[]).filter(r=>!q||[r.memberName,r.memberUsername,r.phone,r.type,r.newData,r.status].join(' ').includes(q));
+    const pending=pendingDataRequests();
+    return `<div class="panel"><div class="panel-head"><div><h2>طلبات تعديل البيانات</h2><p>لا يتم تعديل بيانات العضو إلا بعد موافقة الإدارة.</p></div><span class="status ${pending?'bad':'ok'}">${pending} بانتظار</span></div><div class="tools"><input class="input" id="dataReqSearch" oninput="render()" value="${esc2(q)}" placeholder="بحث باسم العضو أو نوع الطلب"><button class="btn secondary" onclick="render()">تحديث</button></div><div class="cards">${list.length?list.map(dataRequestCard).join(''):'<div class="empty">لا توجد طلبات تعديل بيانات</div>'}</div></div>`
+  }
+  window.dataRequestCard=function(r){
+    const st=r.status==='approved'?'مقبول':r.status==='rejected'?'مرفوض':(r.status==='قيد المراجعة'?'بانتظار':statusText(r.status||'pending'));
+    const can=(r.status==='pending'||r.status==='قيد المراجعة'||!r.status);
+    return `<div class="request-card ${can?'admin-request unread':''}"><h3>${esc2(r.type)} <span class="status ${cls(r.status||'pending')}">${st}</span></h3><p class="muted">العضو: ${esc2(r.memberName)} • اسم المستخدم: ${esc2(r.memberUsername||'-')} • الهاتف: ${esc2(r.phone||'-')}<br>البيانات الحالية: ${esc2(r.currentData||'-')}<br>البيانات المطلوبة: ${esc2(r.newData||'-')}<br>${esc2(r.date||'')}</p>${can?`<div class="actions-row"><button class="btn mini" onclick="approveDataRequest(${r.id})">موافقة</button><button class="btn warn mini" onclick="rejectDataRequest(${r.id})">رفض</button></div>`:''}</div>`
+  }
+  window.approveDataRequest=function(id){
+    const r=(state.dataRequests||[]).find(x=>String(x.id)===String(id)); if(!r)return;
+    const m=(state.members||[]).find(x=>x.id===r.memberId||x.username===r.memberUsername||x.name===r.memberName);
+    if(m){
+      const t=String(r.type||'');
+      if(t.includes('الاسم')) m.name=r.newData;
+      else if(t.includes('الهاتف')||t.includes('رقم')) m.phone=r.newData;
+      else if(t.includes('العنوان')) m.address=r.newData;
+      else if(t.includes('رمز')||t.includes('كلمة')) m.passwordChangeNote=r.newData;
+    }
+    r.status='approved'; r.resolvedAt=new Date().toLocaleString('ar-IQ');
+    log('موافقة طلب تعديل بيانات',`${r.type} - ${r.memberName}`); save(); toast('تمت الموافقة على الطلب'); render();
+  }
+  window.rejectDataRequest=function(id){const r=(state.dataRequests||[]).find(x=>String(x.id)===String(id)); if(!r)return; r.status='rejected'; r.resolvedAt=new Date().toLocaleString('ar-IQ'); log('رفض طلب تعديل بيانات',`${r.type} - ${r.memberName}`); save(); toast('تم رفض الطلب'); render();}
+
+  window.purchaseOrders=function(){
+    try{ if(typeof importMemberOrders==='function') importMemberOrders(); }catch(e){}
+    const now=new Date();const today=now.toISOString().slice(0,10);const weekAgo=new Date(now);weekAgo.setDate(now.getDate()-7);const monthAgo=new Date(now);monthAgo.setMonth(now.getMonth()-1);
+    const orders=[...(state.orders||[])].map((o,i)=>typeof normalizeOrder==='function'?normalizeOrder(o,i):o);
+    function pd(v){const d=new Date(v);return isNaN(d)?new Date():d}
+    const todayCount=orders.filter(o=>pd(o.createdAt||o.date).toISOString().slice(0,10)===today).length;
+    const weekCount=orders.filter(o=>pd(o.createdAt||o.date)>=weekAgo).length;
+    const monthCount=orders.filter(o=>pd(o.createdAt||o.date)>=monthAgo).length;
+    return `<div class="kpis"><div class="kpi" data-icon="today"><small>طلبات اليوم</small><b>${todayCount}</b></div><div class="kpi" data-icon="date_range"><small>طلبات الأسبوع</small><b>${weekCount}</b></div><div class="kpi" data-icon="calendar_month"><small>طلبات الشهر</small><b>${monthCount}</b></div><div class="kpi" data-icon="receipt_long"><small>إجمالي الطلبات</small><b>${orders.length}</b></div></div><div class="panel"><div class="panel-head"><div><h2>طلبات الشراء</h2><p>الطلبات القادمة من واجهة الأعضاء.</p></div><button class="btn secondary mini" onclick="render()">تحديث</button></div><div class="cards">${orders.length?orders.map(orderCard).join(''):'<div class="empty">لا توجد طلبات شراء حتى الآن</div>'}</div></div>`
+  }
+  window.updateOrderStatus=function(id,status){let o=(state.orders||[]).find(x=>String(x.id)===String(id));if(o){o.status=status;log('تغيير حالة طلب','تم تغيير حالة الطلب '+(o.orderNumber||id)+' إلى '+status);save();toast('تم تحديث حالة الطلب');render()}}
+
+  window.notifications=function(){
+    const pending=(state.adminMessages||[]).filter(x=>x.status==='pending');
+    const done=(state.adminMessages||[]).filter(x=>x.status!=='pending');
+    return `<div class="panel"><div class="panel-head"><div><h2>صندوق طلبات الإدارة</h2><p>طلبات عامة تحتاج متابعة الإدارة.</p></div><span class="status ${pendingAdmin()?'bad':'ok'}">${pendingAdmin()} بانتظار</span></div><div class="cards">${pending.length?pending.map(adminRequestCard).join(''):'<div class="empty">لا توجد طلبات إدارية بانتظار المعالجة</div>'}</div></div><div class="panel"><div class="panel-head"><div><h2>الإشعارات</h2><p>إرسال إشعار عام أو مخصص.</p></div></div><div class="form-grid"><div class="field"><label>نوع الإرسال</label><select id="nType"><option>عام</option><option>فرع معين</option><option>عضو معين</option></select></div><div class="field"><label>العنوان</label><input class="input" id="nTitle"></div><div class="field wide"><label>نص الإشعار</label><textarea id="nText"></textarea></div><button class="btn wide" onclick="sendNotification()">إرسال الإشعار</button></div></div><div class="panel"><h2>سجل الإشعارات والطلبات المعالجة</h2><div class="timeline">${[...state.notifications,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',time:x.time}))].length?[...state.notifications,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',time:x.time}))].map(n=>`<div class="log"><h3>${esc2(n.title)}</h3><p>${esc2(n.text)}<br><span class="muted">${esc2(n.type)} • ${esc2(n.time)}</span></p></div>`).join(''):'<div class="empty">لا توجد إشعارات أو طلبات</div>'}</div></div>`
+  }
+
+  window.settings=function(){const s=state.settings||{};return `<div class="panel"><div class="panel-head"><div><h2>إعدادات النظام</h2><p>إعدادات عامة متوافقة مع واجهة الأعضاء.</p></div></div><div class="form-grid"><div class="field"><label>اسم السوق</label><input class="input" id="sMarket" value="${esc2(s.market||'')}"></div><div class="field"><label>رقم واتساب استقبال الطلبات</label><input class="input" id="sWhats" value="${esc2(s.whatsapp||'')}"></div><div class="field"><label>رابط إنستغرام</label><input class="input" id="sInstagram" value="${esc2(s.instagram||'')}"></div><div class="field"><label>رابط تيك توك</label><input class="input" id="sTiktok" value="${esc2(s.tiktok||'')}"></div><div class="field"><label>توصيل صباحاً من</label><input class="input" id="sMorningStart" value="${esc2(s.deliveryMorningStart||'08:00')}"></div><div class="field"><label>توصيل صباحاً إلى</label><input class="input" id="sMorningEnd" value="${esc2(s.deliveryMorningEnd||'12:00')}"></div><div class="field"><label>توصيل مساءً من</label><input class="input" id="sEveningStart" value="${esc2(s.deliveryEveningStart||'16:00')}"></div><div class="field"><label>توصيل مساءً إلى</label><input class="input" id="sEveningEnd" value="${esc2(s.deliveryEveningEnd||'20:00')}"></div><div class="field"><label>سعر/ملاحظة التوصيل</label><input class="input" id="sDeliveryPrice" value="${esc2(s.deliveryPrice||'حسب المسافة')}"></div><div class="field"><label>عنوان السوق</label><input class="input" id="sMarketAddress" value="${esc2(s.marketAddress||'')}"></div><div class="field wide"><label>شعار الموقع</label><input class="input" id="sLogo" value="${esc2(s.logo||'')}"></div><button class="btn wide" onclick="saveSettings()">حفظ الإعدادات</button></div></div><div class="panel danger-zone"><h2>منطقة إعادة التعيين</h2><p class="muted">إعادة بيانات لوحة الإدارة إلى الحالة الأساسية.</p><button class="btn danger" onclick="resetData()">إعادة تعيين البيانات</button></div>`}
+  window.saveSettings=function(){state.settings={...(state.settings||{}),market:sMarket.value,whatsapp:sWhats.value,instagram:sInstagram.value,tiktok:sTiktok.value,deliveryMorningStart:sMorningStart.value,deliveryMorningEnd:sMorningEnd.value,deliveryEveningStart:sEveningStart.value,deliveryEveningEnd:sEveningEnd.value,deliveryPrice:sDeliveryPrice.value,marketAddress:sMarketAddress.value,logo:sLogo.value};localStorage.setItem('linko_market_public_settings',JSON.stringify(state.settings));log('تعديل إعدادات','تم حفظ إعدادات النظام');save();toast('تم حفظ الإعدادات');render()}
 })();
 
 initTheme();buildNav();render();
