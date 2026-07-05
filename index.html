@@ -1360,5 +1360,193 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 })();
 </script>
 
+
+<script>
+/* ===== LINKO SAFE DELETE + TRASH SYSTEM FINAL PATCH ===== */
+(function(){
+  function $(id){return document.getElementById(id)}
+  function safeText(v){return String(v ?? '').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function arr(name){ if(!Array.isArray(state[name])) state[name]=[]; return state[name]; }
+  function notify(t){ try{toast(t)}catch(e){alert(t)} }
+  function persist(){ try{save()}catch(e){try{localStorage.setItem('linko_admin_state_v1',JSON.stringify(state))}catch(_){} } }
+  function now(){ return new Date().toLocaleString('ar-IQ'); }
+  function deletedBy(){ return 'admin'; }
+  function itemTitle(kind,item){
+    if(!item) return 'عنصر';
+    if(kind==='product') return item.name||'منتج';
+    if(kind==='branch') return item.name||'فرع';
+    if(kind==='member') return item.name||'عضو';
+    if(kind==='request') return item.name||item.username||'طلب اشتراك';
+    if(kind==='adminRequest') return item.title||'طلب إداري';
+    if(kind==='dataRequest') return item.type||item.memberName||'طلب تعديل بيانات';
+    if(kind==='order') return item.orderNumber||item.number||'طلب شراء';
+    if(kind==='log') return item.type||'سجل عملية';
+    if(kind==='notification') return item.title||'إشعار';
+    if(kind==='image') return item.name||'صورة';
+    return item.name||item.title||'عنصر';
+  }
+  function itemImage(item){ return item && (item.img||item.image||item.photo||item.logo||'') || ''; }
+  const labels={product:'منتج',branch:'فرع',member:'عضو',request:'طلب اشتراك',adminRequest:'طلب إداري',dataRequest:'طلب تعديل بيانات',order:'طلب شراء',log:'سجل عملية',notification:'إشعار',image:'صورة'};
+  const sourceMap={product:'products',branch:'branches',member:'members',request:'requests',adminRequest:'adminMessages',dataRequest:'dataRequests',order:'orders',log:'logs',notification:'notifications'};
+  function ensureTrash(){
+    if(!Array.isArray(state.trash)) state.trash=[];
+    if(Array.isArray(sections) && !sections.some(function(s){return s[0]==='trash'})){
+      const idx=sections.findIndex(function(s){return s[0]==='settings'});
+      sections.splice(idx>=0?idx:sections.length,0,['trash','delete','سلة المحذوفات','استعادة العناصر المحذوفة أو حذفها نهائياً.']);
+    }
+  }
+  function showConfirm(opts){
+    const title=safeText(opts.title||'تأكيد الإجراء');
+    const text=safeText(opts.text||'هل أنت متأكد من تنفيذ هذا الإجراء؟');
+    const confirmText=safeText(opts.confirmText||'تأكيد');
+    const cancelText=safeText(opts.cancelText||'إلغاء');
+    window.__linkoConfirmYes=function(){
+      try{ if(typeof opts.onConfirm==='function') opts.onConfirm(); } finally { window.__linkoConfirmYes=null; }
+    };
+    if(typeof openModal==='function'){
+      openModal(title,`<div class="request-card" style="background:linear-gradient(180deg,#fff,#fff7f7);border-color:#fecaca"><h3 style="font-weight:900">${text}</h3><p class="muted">هذا الإجراء يمكن التراجع عنه من خلال سلة المحذوفات.</p><div class="actions-row" style="margin-top:8px"><button class="btn secondary" onclick="closeModal()">${cancelText}</button><button class="btn danger" onclick="closeModal();window.__linkoConfirmYes&&window.__linkoConfirmYes()">${confirmText}</button></div></div>`);
+    }else if(confirm(text)){ opts.onConfirm&&opts.onConfirm(); }
+  }
+  function showPermanentConfirm(onConfirm){
+    window.__linkoPermanentYes=function(){ try{onConfirm&&onConfirm()}finally{window.__linkoPermanentYes=null;} };
+    openModal('تأكيد الحذف النهائي',`<div class="request-card" style="background:linear-gradient(180deg,#fff,#fff7f7);border-color:#fecaca"><h3 style="font-weight:900">هل أنت متأكد من الحذف النهائي؟</h3><p class="muted">هذا الإجراء لا يمكن التراجع عنه.</p><div class="actions-row" style="margin-top:8px"><button class="btn secondary" onclick="closeModal()">إلغاء</button><button class="btn danger" onclick="closeModal();window.__linkoPermanentYes&&window.__linkoPermanentYes()">حذف نهائي</button></div></div>`);
+  }
+  function pushTrash(kind,item,sourceName){
+    ensureTrash();
+    const copy=JSON.parse(JSON.stringify(item||{}));
+    state.trash.unshift({trashId:Date.now()+Math.floor(Math.random()*9999),kind:kind,typeLabel:labels[kind]||'عنصر',source:sourceName||sourceMap[kind]||'',originalId:copy.id,originalKey:copy.id||copy.orderNumber||copy.title||copy.name,name:itemTitle(kind,copy),img:itemImage(copy),deletedAt:now(),deletedBy:deletedBy(),data:copy});
+  }
+  function removeFromArray(name,id,matcher){
+    const a=arr(name); const before=a.length;
+    state[name]=a.filter(function(x){return matcher? !matcher(x) : String(x.id)!==String(id)});
+    return before!==state[name].length;
+  }
+  function softDelete(kind,id){
+    ensureTrash();
+    const source=sourceMap[kind]; if(!source){notify('نوع العنصر غير معروف');return;}
+    const a=arr(source); const item=a.find(function(x){return String(x.id)===String(id) || String(x.orderNumber)===String(id)});
+    if(!item){notify('لم يتم العثور على العنصر');return;}
+    if(kind==='branch'){
+      const count=(state.products||[]).filter(function(p){return p.branch===item.name || p.branch==='كل الفروع'}).length;
+      if(count>0){notify('لا يمكن حذف هذا الفرع لأنه يحتوي على منتجات. يرجى حذف المنتجات أو نقلها أولاً.');return;}
+    }
+    showConfirm({title:'تأكيد الحذف',text:'هل أنت متأكد من حذف هذا العنصر؟',confirmText:'تأكيد الحذف',onConfirm:function(){
+      pushTrash(kind,item,source);
+      removeFromArray(source,id,function(x){return String(x.id)===String(id) || String(x.orderNumber)===String(id)});
+      try{log('نقل إلى سلة المحذوفات','تم نقل '+(labels[kind]||'عنصر')+' '+itemTitle(kind,item)+' إلى سلة المحذوفات')}catch(e){}
+      persist(); notify('تم نقل العنصر إلى سلة المحذوفات'); render();
+    }});
+  }
+  window.deleteProduct=function(id){softDelete('product',id)};
+  window.deleteBranch=function(id){softDelete('branch',id)};
+  window.deleteMember=function(id){softDelete('member',id)};
+  window.deleteReq=function(id){softDelete('request',id)};
+  window.deleteAdminRequest=function(id){softDelete('adminRequest',id)};
+  window.deleteDataRequest=function(id){softDelete('dataRequest',id)};
+  window.deleteOrder=function(id){softDelete('order',id)};
+  window.deleteNotification=function(id){softDelete('notification',id)};
+  window.clearRejected=function(){
+    const rejected=arr('requests').filter(function(x){return x.status==='rejected'});
+    if(!rejected.length){notify('لا توجد طلبات مرفوضة');return;}
+    showConfirm({title:'تأكيد الحذف',text:'هل أنت متأكد من حذف الطلبات المرفوضة؟',confirmText:'تأكيد الحذف',onConfirm:function(){
+      rejected.forEach(function(r){pushTrash('request',r,'requests')});
+      state.requests=arr('requests').filter(function(x){return x.status!=='rejected'});
+      try{log('نقل إلى سلة المحذوفات','تم نقل الطلبات المرفوضة إلى سلة المحذوفات')}catch(e){}
+      persist();notify('تم نقل الطلبات المرفوضة إلى سلة المحذوفات');render();
+    }});
+  };
+  window.clearLogs=function(){
+    const logs=arr('logs').slice();
+    if(!logs.length){notify('السجل فارغ');return;}
+    showConfirm({title:'تأكيد الحذف',text:'هل أنت متأكد من مسح سجل العمليات؟',confirmText:'تأكيد الحذف',onConfirm:function(){
+      logs.forEach(function(l){pushTrash('log',l,'logs')});
+      state.logs=[]; try{log('مسح سجل العمليات','تم نقل السجل السابق إلى سلة المحذوفات')}catch(e){}
+      persist();notify('تم نقل السجل إلى سلة المحذوفات');render();
+    }});
+  };
+  const oldReset=window.resetData;
+  window.resetData=function(){
+    showPermanentConfirm(function(){
+      if(typeof seed==='function'){ state=seed(); window.state=state; persist(); notify('تمت إعادة التعيين'); render(); }
+      else if(typeof oldReset==='function') oldReset();
+    });
+  };
+  window.trash=function(){
+    ensureTrash();
+    const list=state.trash||[];
+    return `<div class="panel"><div class="panel-head"><div><h2>🗑️ سلة المحذوفات</h2><p>العناصر المحذوفة يمكن استعادتها أو حذفها نهائياً.</p></div><span class="status ${list.length?'bad':'ok'}">${list.length} عنصر</span></div><div class="cards">${list.length?list.map(trashCard).join(''):'<div class="empty">سلة المحذوفات فارغة</div>'}</div></div>`;
+  };
+  window.trashCard=function(t){
+    return `<div class="product-card"><div class="product-img">${t.img?`<img src="${t.img}" alt="${safeText(t.name)}">`:`<span class="material-symbols-rounded">delete</span>`}</div><div><h3>${safeText(t.name)} <span class="status bad">${safeText(t.typeLabel)}</span></h3><p class="muted">تاريخ الحذف: ${safeText(t.deletedAt)}<br>بواسطة: ${safeText(t.deletedBy||'admin')}</p></div><div class="actions-row"><button class="btn mini" onclick="restoreTrash(${t.trashId})">استعادة</button><button class="btn danger mini" onclick="permanentDelete(${t.trashId})">حذف نهائي</button></div></div>`;
+  };
+  window.restoreTrash=function(trashId){
+    ensureTrash();
+    const item=state.trash.find(function(x){return String(x.trashId)===String(trashId)});
+    if(!item){notify('لم يتم العثور على العنصر');return;}
+    const source=item.source||sourceMap[item.kind]; if(!source){notify('تعذر تحديد مكان الاستعادة');return;}
+    arr(source);
+    const exists=state[source].some(function(x){return String(x.id)===String(item.originalId) || (item.kind==='order'&&String(x.orderNumber)===String(item.originalKey))});
+    if(!exists) state[source].unshift(JSON.parse(JSON.stringify(item.data||{})));
+    state.trash=state.trash.filter(function(x){return String(x.trashId)!==String(trashId)});
+    try{log('استعادة من سلة المحذوفات','تم استعادة '+item.typeLabel+' '+item.name)}catch(e){}
+    persist(); notify('تمت الاستعادة'); render();
+  };
+  window.permanentDelete=function(trashId){
+    ensureTrash();
+    const item=state.trash.find(function(x){return String(x.trashId)===String(trashId)});
+    if(!item){notify('لم يتم العثور على العنصر');return;}
+    showPermanentConfirm(function(){
+      state.trash=state.trash.filter(function(x){return String(x.trashId)!==String(trashId)});
+      try{log('حذف نهائي','تم حذف '+item.typeLabel+' '+item.name+' نهائياً')}catch(e){}
+      persist(); notify('تم الحذف النهائي'); render();
+    });
+  };
+  const prevBuildNav=window.buildNav;
+  window.buildNav=function(){
+    ensureTrash();
+    const nav=$('nav'); if(!nav) return;
+    nav.innerHTML=sections.map(function(s){return `<button class="${s[0]===active?'active':''}" onclick="openSec('${s[0]}')"><span class="ico"><span class="material-symbols-rounded">${s[1]}</span></span>${s[2]}${typeof sectionBadge==='function'?sectionBadge(s[0]):''}</button>`}).join('');
+  };
+  const prevRender=window.render;
+  window.render=function(){
+    ensureTrash();
+    buildNav(); let html='';
+    if(active==='dashboard') html=dashboard();
+    if(active==='subscriptions') html=subscriptions();
+    if(active==='purchaseOrders') html=typeof purchaseOrders==='function'?purchaseOrders():'';
+    if(active==='dataRequests') html=typeof dataRequests==='function'?dataRequests():'';
+    if(active==='members') html=members();
+    if(active==='products') html=products();
+    if(active==='branches') html=branches();
+    if(active==='trash') html=trash();
+    if(active==='reports') html=reports();
+    if(active==='notifications') html=notifications();
+    if(active==='logs') html=logs();
+    if(active==='settings') html=settings();
+    const main=$('main'); if(main) main.innerHTML=html;
+  };
+  function setHiddenValue(id,val){const x=$(id); if(x) x.value=val||'';}
+  function setImageBox(boxId,val,label){const box=$(boxId); if(box) box.innerHTML=val?`<img src="${val}" alt="${safeText(label||'صورة')}">`:`<span>${safeText(label||'صورة')}</span>`;}
+  const oldClearProduct=window.clearProductImage;
+  window.clearProductImage=function(){
+    showConfirm({title:'تأكيد حذف الصورة',text:'هل أنت متأكد من حذف هذه الصورة؟',confirmText:'تأكيد الحذف',onConfirm:function(){
+      const old=$('pImg')?$('pImg').value:''; if(old) pushTrash('image',{id:Date.now(),name:'صورة منتج',img:old},'');
+      setHiddenValue('pImg',''); setImageBox('pImgPreviewBox','','صورة المنتج'); notify('تم حذف الصورة');
+    }});
+  };
+  const oldClearCompact=window.clearCompactImage;
+  window.clearCompactImage=function(inputId,boxId,label){
+    showConfirm({title:'تأكيد حذف الصورة',text:'هل أنت متأكد من حذف هذه الصورة؟',confirmText:'تأكيد الحذف',onConfirm:function(){
+      const old=$(inputId)?$(inputId).value:''; if(old) pushTrash('image',{id:Date.now(),name:'صورة '+(label||''),img:old},'');
+      setHiddenValue(inputId,''); setImageBox(boxId,'',label||'صورة'); notify('تم حذف الصورة');
+    }});
+  };
+  ensureTrash(); persist(); if(typeof render==='function') render();
+})();
+</script>
+<style>
+/* LINKO safe delete / trash polish */
+.product-card .product-img img,.branch-photo img,.member-avatar img{object-fit:contain!important;object-position:center center!important}.modal-card .request-card{box-shadow:var(--soft)}
+</style>
 </body>
 </html>
