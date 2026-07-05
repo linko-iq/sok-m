@@ -849,5 +849,95 @@ document.addEventListener('keydown', function(e){
 })();
 </script>
 
+
+<style id="linko-final-fast-image-style">
+html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-y!important}
+*{scroll-behavior:auto!important}
+.nav button{will-change:background,color!important;transition:background .08s linear,color .08s linear!important}
+.section,.panel,.kpi,.cards>*{animation:none!important}
+.linko-image-preview-layer,.linko-editor-layer{position:fixed;inset:0;background:rgba(15,23,42,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(8px)}
+.linko-image-preview-card,.linko-editor-card{width:min(760px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:28px;padding:16px;box-shadow:0 28px 90px rgba(0,0,0,.28);color:#101828;direction:rtl}
+.linko-image-preview-card h3,.linko-editor-card h3{font-size:22px;font-weight:900;margin:0 0 12px;color:#101828}
+.linko-image-preview-card .preview-box{height:min(62vh,560px);border:1px solid #e4e7ec;border-radius:22px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:10px}
+.linko-image-preview-card .preview-box img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border-radius:16px;background:#fff}
+.linko-editor-stage{height:min(54vh,520px);border:1px solid #d0d5dd;border-radius:24px;background:linear-gradient(45deg,#f3f4f6 25%,transparent 25%),linear-gradient(-45deg,#f3f4f6 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f3f4f6 75%),linear-gradient(-45deg,transparent 75%,#f3f4f6 75%);background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;margin-bottom:12px}
+.linko-editor-stage img{max-width:100%;max-height:100%;object-fit:contain;transform-origin:center center;user-select:none;-webkit-user-select:none;pointer-events:none}
+.linko-editor-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:10px 0}
+.linko-editor-field{background:#f8fafc;border:1px solid #e4e7ec;border-radius:16px;padding:10px;font-weight:900;color:#344054}
+.linko-editor-field label{display:block;margin-bottom:6px}.linko-editor-field input{width:100%}
+.linko-editor-actions{display:flex;gap:8px;flex-wrap:wrap}.linko-editor-actions .btn{flex:1 1 140px}
+.image-preview img,.compact-image-preview img,.product-img img,.branch-photo img,.member-avatar img{object-fit:contain!important;width:100%!important;height:100%!important;background:#fff!important}
+@media(max-width:620px){.linko-editor-grid{grid-template-columns:1fr}.linko-editor-stage{height:42vh}.linko-image-preview-card,.linko-editor-card{border-radius:24px;padding:12px}}
+</style>
+<script id="linko-final-fast-image-script">
+(function(){
+  function byId(id){return document.getElementById(id)}
+  function msg(t){ if(typeof toast==='function') toast(t); else alert(t); }
+  function esc(v){return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function setPreview(boxId,src,label){var box=byId(boxId); if(!box)return; box.innerHTML=src?'<img src="'+src+'" alt="معاينة الصورة">':'<span>'+(label||'صورة')+'</span>';}
+  function setInput(inputId,src){var input=byId(inputId); if(input) input.value=src||'';}
+  function getInput(inputId){var input=byId(inputId); return input?input.value:'';}
+  function compressImage(img,opts){
+    opts=opts||{}; var maxW=opts.maxW||1100,maxH=opts.maxH||1100,quality=opts.quality||0.82;
+    var w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+    var ratio=Math.min(maxW/w,maxH/h,1); var cw=Math.max(1,Math.round(w*ratio)),ch=Math.max(1,Math.round(h*ratio));
+    var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+    var ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,cw,ch); ctx.drawImage(img,0,0,cw,ch);
+    return c.toDataURL('image/jpeg',quality);
+  }
+  function openImageEditor(file,inputId,boxId,label){
+    if(!file){msg('لم يتم اختيار صورة');return}
+    if(!String(file.type||'').startsWith('image/')){msg('اختر ملف صورة فقط');return}
+    var reader=new FileReader();
+    reader.onerror=function(){msg('تعذر قراءة الصورة')};
+    reader.onload=function(e){
+      var raw=e.target.result;
+      var old=byId('linkoEditorLayer'); if(old) old.remove();
+      var layer=document.createElement('div'); layer.className='linko-editor-layer'; layer.id='linkoEditorLayer';
+      layer.innerHTML='<div class="linko-editor-card"><h3>تعديل الصورة</h3><div class="linko-editor-stage"><img id="linkoEditImg" src="'+raw+'" alt="تعديل الصورة"></div><div class="linko-editor-grid"><div class="linko-editor-field"><label>تكبير / تصغير</label><input id="linkoZoom" type="range" min="1" max="3" step="0.01" value="1"></div><div class="linko-editor-field"><label>تحريك يمين / يسار</label><input id="linkoMoveX" type="range" min="-120" max="120" step="1" value="0"></div><div class="linko-editor-field"><label>تحريك فوق / تحت</label><input id="linkoMoveY" type="range" min="-120" max="120" step="1" value="0"></div></div><div class="linko-editor-actions"><button type="button" class="btn" id="linkoUseImage">حفظ الصورة</button><button type="button" class="btn secondary" id="linkoResetImage">إرجاع طبيعي</button><button type="button" class="btn dark" id="linkoCancelImage">إغلاق</button></div></div>';
+      document.body.appendChild(layer);
+      var img=byId('linkoEditImg'), zoom=byId('linkoZoom'), mx=byId('linkoMoveX'), my=byId('linkoMoveY');
+      function apply(){ img.style.transform='translate('+mx.value+'px,'+my.value+'px) scale('+zoom.value+')'; }
+      zoom.oninput=mx.oninput=my.oninput=apply;
+      byId('linkoResetImage').onclick=function(){zoom.value=1;mx.value=0;my.value=0;apply();};
+      byId('linkoCancelImage').onclick=function(){layer.remove();};
+      byId('linkoUseImage').onclick=function(){
+        var image=new Image();
+        image.onload=function(){
+          var data=compressImage(image,{maxW:1200,maxH:1200,quality:0.80});
+          setInput(inputId,data); setPreview(boxId,data,label); layer.remove(); msg('تم حفظ الصورة داخل النموذج');
+        };
+        image.onerror=function(){msg('تعذر تجهيز الصورة')};
+        image.src=raw;
+      };
+      apply();
+    };
+    reader.readAsDataURL(file);
+  }
+  window.handleProductImageUpload=function(ev){ var file=ev&&ev.target&&ev.target.files?ev.target.files[0]:null; openImageEditor(file,'pImg','pImgPreviewBox','صورة المنتج'); };
+  window.handleCompactImageUpload=function(ev,inputId,boxId,label){ var file=ev&&ev.target&&ev.target.files?ev.target.files[0]:null; openImageEditor(file,inputId,boxId,label||'صورة'); };
+  window.clearProductImage=function(){ setInput('pImg',''); var f=byId('pFile'); if(f)f.value=''; setPreview('pImgPreviewBox','','صورة المنتج'); msg('تم حذف الصورة'); };
+  window.clearCompactImage=function(inputId,boxId,label){ setInput(inputId,''); var f=byId(inputId==='bImg'?'bFile':(inputId==='mImg'?'mFile':'')); if(f)f.value=''; setPreview(boxId,'',label||'صورة'); msg('تم حذف الصورة'); };
+  window.linkoImagePreview=function(src){
+    if(!src){msg('لا توجد صورة للمعاينة');return}
+    var old=byId('linkoImagePreviewLayer'); if(old)old.remove();
+    var layer=document.createElement('div'); layer.id='linkoImagePreviewLayer'; layer.className='linko-image-preview-layer';
+    layer.innerHTML='<div class="linko-image-preview-card"><h3>معاينة الصورة</h3><div class="preview-box"><img src="'+src+'" alt="معاينة الصورة"></div><button type="button" class="btn dark full" id="linkoCloseImagePreview">إغلاق المعاينة</button></div>';
+    document.body.appendChild(layer); var close=byId('linkoCloseImagePreview'); if(close) close.onclick=function(){layer.remove()}; layer.onclick=function(e){if(e.target===layer)layer.remove()};
+  };
+  window.previewProductImage=function(){ window.linkoImagePreview(getInput('pImg')); };
+  window.previewCompactImage=function(inputId){ window.linkoImagePreview(getInput(inputId)); };
+  function safeSaveThen(closeText){ try{save(); return true;}catch(e){ msg('تم تقليل حجم الصورة تلقائياً، جرّب الحفظ مرة ثانية'); return false;} }
+  var originalOpenSec=window.openSec;
+  window.openSec=function(id){
+    active=id; var s=(sections||[]).find(function(x){return x[0]===id;});
+    if(byId('pageTitle')&&s)byId('pageTitle').textContent=s[2]; if(byId('pageDesc')&&s)byId('pageDesc').textContent=s[3];
+    var side=byId('sidebar'); if(side)side.classList.remove('open');
+    var nav=byId('nav'); if(nav){ Array.prototype.forEach.call(nav.querySelectorAll('button'),function(b){b.classList.remove('active')}); }
+    if(typeof render==='function') requestAnimationFrame(function(){render();});
+  };
+})();
+</script>
+
 </body>
 </html>
