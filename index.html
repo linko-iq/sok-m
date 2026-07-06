@@ -2984,193 +2984,166 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
 
 
-<!-- ===== LINKO PHASE 7 ADMIN FINAL: PERFORMANCE + STABILITY + CLEANUP ===== -->
-<style id="linko-admin-phase7-final-style">
-  :root{--linko-fast:.16s cubic-bezier(.2,.8,.2,1)}
-  html,body{scroll-behavior:smooth;}
-  .panel,.kpi,.product-card,.member-card,.request-card,.branch-card,.log,.admin-request{will-change:auto!important;backface-visibility:hidden;}
-  .btn,.nav button,.icon-btn,.theme-toggle{touch-action:manipulation;}
-  .section.active{animation:linkoPhase7Fade .16s ease both!important;}
-  @keyframes linkoPhase7Fade{from{opacity:.65;transform:translateY(4px)}to{opacity:1;transform:none}}
-  .kpi:hover,.product-card:hover,.member-card:hover,.request-card:hover,.branch-card:hover,.log:hover{transform:none!important;}
-  .toast{pointer-events:none;}
-  img{content-visibility:auto;}
-  .cards,.timeline,.branch-grid,.kpis{contain:layout paint;}
-  .modal-card{overscroll-behavior:contain;}
-  body.linko-phase7-low-motion .section,
-  body.linko-phase7-low-motion .panel,
-  body.linko-phase7-low-motion .kpi,
-  body.linko-phase7-low-motion .cards>*{animation:none!important;}
-  body.linko-phase7-low-motion .motivation-track{animation-duration:52s!important;}
-  @media(max-width:980px){
-    .topbar{backdrop-filter:blur(8px)!important;}
-    .login-card,.modal,.side-menu{backdrop-filter:none!important;}
-    .panel,.kpi,.product-card,.member-card,.request-card,.branch-card,.log,.admin-request{box-shadow:0 8px 22px rgba(16,24,40,.075)!important;}
-    .section,.panel,.kpi,.cards>*{animation:none!important;}
-    .motivation-track{animation-duration:44s!important;}
-  }
-  @media(prefers-reduced-motion:reduce){
-    *,*:before,*:after{animation:none!important;transition:none!important;}
-  }
-</style>
-<script id="linko-admin-phase7-final-script">
-(function(){
-  if(window.__LINKO_ADMIN_PHASE7_FINAL__) return;
-  window.__LINKO_ADMIN_PHASE7_FINAL__ = true;
+<!-- LINKO PHASE 7 FINAL: AUTHORITATIVE SIGNUP APPROVAL PASSWORD FIX -->
+<script type="module" id="linkoPhase7ApprovePasswordFinal">
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
-  const safeArr = (v) => Array.isArray(v) ? v : [];
-  const txt = (v) => String(v ?? '').trim();
-  const now = () => new Date().toLocaleString('ar-IQ');
-  const normPhone = (v) => txt(v).replace(/[^0-9+]/g,'');
-  const stableId = () => Date.now() + Math.floor(Math.random()*9999);
-
-  function keySignup(r){ return [txt(r.name||r.fullName).toLowerCase(), normPhone(r.phone), txt(r.code||r.password)].filter(Boolean).join('|') || txt(r.id); }
-  function keyDataReq(r){ return [txt(r.memberId||r.memberUsername||r.memberName).toLowerCase(), txt(r.type), txt(r.newData||r.newValue), txt(r.createdAt||r.time)].join('|'); }
-  function keyAdminReq(r){ return [txt(r.type), txt(r.title), txt(r.details), txt(r.memberId||r.memberName), txt(r.time||r.createdAt)].join('|'); }
-
-  function dedupe(list, keyFn){
-    const seen = new Set();
-    const out = [];
-    for(const item of safeArr(list)){
-      if(!item) continue;
-      const k = keyFn(item) || txt(item.id) || JSON.stringify(item).slice(0,160);
-      if(seen.has(k)) continue;
-      seen.add(k);
-      out.push(item);
-    }
-    return out;
-  }
-
-  function normalizeStateFinal(){
-    const s = window.state || {};
-    s.requests = dedupe(s.requests, keySignup).map((r,i)=>({
-      id: r.id || r.docId || stableId()+i,
-      name: r.name || r.fullName || r.memberName || '',
-      phone: r.phone || '',
-      area: r.area || r.address || '',
-      code: r.code || r.password || '',
-      status: r.status || 'pending',
-      date: r.date || r.createdAt || r.time || now(),
-      docId: r.docId || r.id || ''
-    }));
-    s.dataRequests = dedupe(s.dataRequests, keyDataReq).map((r,i)=>({
-      id: r.id || r.docId || stableId()+i,
-      memberId: r.memberId || '',
-      memberName: r.memberName || r.name || '',
-      memberUsername: r.memberUsername || r.username || '',
-      phone: r.phone || '',
-      type: r.type || 'تعديل بيانات',
-      currentData: r.currentData || r.current || '',
-      newData: r.newData || r.newValue || '',
-      status: r.status || 'pending',
-      createdAt: r.createdAt || r.time || now(),
-      docId: r.docId || r.id || ''
-    }));
-    s.adminMessages = dedupe(s.adminMessages, keyAdminReq);
-    s.logs = safeArr(s.logs).slice(0,350);
-    s.notifications = safeArr(s.notifications).slice(0,250);
-    s.products = safeArr(s.products);
-    s.branches = safeArr(s.branches);
-    s.members = safeArr(s.members);
-    s.orders = safeArr(s.orders);
-    if(!s.settings) s.settings = {};
-    window.state = s;
-    return s;
-  }
-
-  function afterRenderPolish(){
-    try{
-      document.querySelectorAll('img').forEach(img=>{
-        if(!img.loading) img.loading = 'lazy';
-        img.decoding = 'async';
-        img.onerror = function(){ this.style.display='none'; };
-      });
-      document.querySelectorAll('button').forEach(btn=>{
-        if(!btn.hasAttribute('type')) btn.setAttribute('type','button');
-        btn.setAttribute('aria-live','polite');
-      });
-    }catch(e){}
-  }
-
-  const originalRender = typeof window.render === 'function' ? window.render.bind(window) : null;
-  if(originalRender){
-    let queued = false;
-    let rendering = false;
-    window.render = function(){
-      if(rendering) return;
-      if(queued) return;
-      queued = true;
-      requestAnimationFrame(()=>{
-        queued = false;
-        rendering = true;
-        try{
-          normalizeStateFinal();
-          originalRender();
-          afterRenderPolish();
-        }catch(err){
-          console.error('LINKO Phase7 render error:', err);
-          try{ originalRender(); }catch(e){}
-        }finally{ rendering = false; }
-      });
-    };
-    window.linkoRenderNow = function(){
-      try{ normalizeStateFinal(); originalRender(); afterRenderPolish(); }catch(e){ console.error(e); }
-    };
-  }
-
-  const originalSave = typeof window.save === 'function' ? window.save.bind(window) : null;
-  if(originalSave){
-    let saveTimer = null;
-    window.save = function(){
-      normalizeStateFinal();
-      try{ originalSave(); }catch(e){ console.error('LINKO save error:', e); }
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(()=>{
-        try{ localStorage.setItem('linko_market_admin_v2_state_backup', JSON.stringify(window.state||{})); }catch(e){}
-      }, 120);
-    };
-  }
-
-  const originalToast = typeof window.toast === 'function' ? window.toast.bind(window) : null;
-  if(originalToast){
-    let lastToast = '', lastAt = 0;
-    window.toast = function(message){
-      const m = txt(message);
-      const t = Date.now();
-      if(m === lastToast && t-lastAt < 900) return;
-      lastToast = m; lastAt = t;
-      originalToast(m);
-    };
-  }
-
-  window.linkoAdminHealthCheck = function(){
-    const s = normalizeStateFinal();
-    const report = {
-      products: s.products.length,
-      branches: s.branches.length,
-      members: s.members.length,
-      orders: s.orders.length,
-      signupRequests: s.requests.length,
-      dataRequests: s.dataRequests.length,
-      notifications: s.notifications.length,
-      logs: s.logs.length,
-      ok: true
-    };
-    console.table(report);
-    try{ toast('فحص الإدارة مكتمل: كل الأقسام الأساسية جاهزة'); }catch(e){}
-    return report;
+  const firebaseConfig = {
+    apiKey: "AIzaSyBI_G4gS3WHQI-VF2JBUHPTACGFC3_s8y4",
+    authDomain: "medina-bazaar-e5d67.firebaseapp.com",
+    projectId: "medina-bazaar-e5d67",
+    storageBucket: "medina-bazaar-e5d67.firebasestorage.app",
+    messagingSenderId: "584827394228",
+    appId: "1:584827394228:web:2447944b4324a17b469fe1"
   };
 
-  window.addEventListener('load', ()=>{
+  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+  const db = window.linkoFirestoreDB || getFirestore(app);
+
+  const SIGNUP_COLLECTION = 'linko_market_requests';
+  const MEMBERS_COLLECTION = 'linko_market_members';
+  const SIGNUP_LOCAL_KEY = 'linko_market_requests';
+  const MEMBERS_LOCAL_KEY = 'linko_market_members';
+  const ADMIN_STATE_KEY = 'linko_admin_state';
+
+  const show = (msg) => { try { window.toast(msg); } catch(e) { console.log(msg); } };
+  const nowIQ = () => { try { return new Date().toLocaleString('ar-IQ'); } catch(e) { return new Date().toISOString(); } };
+  const clean = (v) => String(v ?? '').trim();
+  const readLocal = (key) => { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch(e) { return []; } };
+  const writeLocal = (key, rows) => { try { localStorage.setItem(key, JSON.stringify(rows || [])); } catch(e) {} };
+  const writeState = () => { try { localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state || {})); } catch(e) {} };
+
+  function normalizeSignup(r = {}){
+    const fullName = clean(r.fullName || r.name);
+    const username = clean(r.username || r.memberUsername || ('member_' + (r.id || Date.now())));
+    const password = clean(r.password || r.loginPassword || r.pin || r.pass || r.memberPassword || r.accessCode || r.secret);
+    const phone = clean(r.phone || r.mobile || r.memberPhone);
+    const address = clean(r.address || r.area || r.location);
+    const img = clean(r.img || r.avatar || r.photoURL || '');
+    return {
+      ...r,
+      id: clean(r.id || ('signup_' + Date.now())),
+      fullName,
+      name: fullName,
+      username,
+      phone,
+      address,
+      area: address,
+      password,
+      img,
+      avatar: img,
+      status: clean(r.status || 'pending'),
+      createdAt: r.createdAt || r.date || nowIQ()
+    };
+  }
+
+  function makeMemberFromSignup(raw){
+    const r = normalizeSignup(raw);
+    if(!r.fullName) throw Object.assign(new Error('طلب الاشتراك لا يحتوي اسم العضو'), { code:'missing-name' });
+    if(!r.password) throw Object.assign(new Error('طلب الاشتراك لا يحتوي رمز الدخول. أعد إرسال طلب الاشتراك من ملف الأعضاء الجديد.'), { code:'missing-password' });
+    const safeUsername = clean(r.username || ('member_' + r.id)).replace(/[^\w\-]/g, '_') || ('member_' + Date.now());
+    const memberId = clean(r.memberId || ('member_' + safeUsername + '_' + r.id)).replace(/[^\w\-]/g, '_');
+    return {
+      id: memberId,
+      requestId: r.id,
+      name: r.fullName,
+      fullName: r.fullName,
+      username: safeUsername,
+      memberUsername: safeUsername,
+      phone: r.phone,
+      address: r.address,
+      area: r.address,
+      balance: 0,
+      status: 'active',
+      isApproved: true,
+      approved: true,
+      approvedAt: nowIQ(),
+      createdAt: nowIQ(),
+      img: '',
+      avatar: '',
+      photoURL: '',
+      password: r.password,
+      pin: r.password,
+      loginCode: r.password,
+      accessCode: r.password,
+      // مهم: بعض نسخ ملف الأعضاء القديمة تقرأ code كرمز دخول، لذلك نثبته هنا أيضاً.
+      code: r.password,
+      originalUsername: safeUsername,
+      source: 'admin_approve_password_final'
+    };
+  }
+
+  async function getSignupAuthoritative(id){
+    const strId = clean(id);
+    let local = (window.state?.requests || readLocal(SIGNUP_LOCAL_KEY) || []).find(x => String(x.id) === strId);
     try{
-      if(window.matchMedia && window.matchMedia('(max-width: 980px)').matches){ document.body.classList.add('linko-phase7-low-motion'); }
-      normalizeStateFinal();
-      afterRenderPolish();
-    }catch(e){}
-  }, {once:true, passive:true});
-})();
+      const snap = await getDoc(doc(db, SIGNUP_COLLECTION, strId));
+      if(snap.exists()) return normalizeSignup({ id: snap.id, ...snap.data(), ...(local || {}) });
+    }catch(e){ console.warn('LINKO signup direct read failed, using local copy', e); }
+    return local ? normalizeSignup(local) : null;
+  }
+
+  async function removeSignupEverywhere(id){
+    const strId = clean(id);
+    try { await deleteDoc(doc(db, SIGNUP_COLLECTION, strId)); } catch(e) { console.warn('delete signup failed', e); }
+    const next = (window.state?.requests || readLocal(SIGNUP_LOCAL_KEY) || []).filter(x => String(x.id) !== strId);
+    if(window.state) window.state.requests = next;
+    writeLocal(SIGNUP_LOCAL_KEY, next);
+  }
+
+  function upsertMemberLocal(member){
+    const current = window.state?.members || readLocal(MEMBERS_LOCAL_KEY) || [];
+    const filtered = current.filter(m => {
+      const sameId = String(m.id) === String(member.id);
+      const samePhone = member.phone && String(m.phone || '') === String(member.phone);
+      const sameName = member.fullName && String(m.fullName || m.name || '').trim() === String(member.fullName).trim();
+      return !(sameId || (samePhone && sameName));
+    });
+    const next = [member, ...filtered];
+    if(window.state) window.state.members = next;
+    writeLocal(MEMBERS_LOCAL_KEY, next);
+    writeState();
+  }
+
+  window.approveReq = async function(id){
+    if(window.__linkoApproveSaving) return;
+    window.__linkoApproveSaving = true;
+    try{
+      const signup = await getSignupAuthoritative(id);
+      if(!signup){ show('طلب الاشتراك غير موجود'); return; }
+      const member = makeMemberFromSignup(signup);
+      await setDoc(doc(db, MEMBERS_COLLECTION, member.id), { ...member, updatedAtServer: serverTimestamp() }, { merge: true });
+      await removeSignupEverywhere(signup.id);
+      upsertMemberLocal(member);
+      try { if(typeof window.log === 'function') window.log('قبول اشتراك', 'تم قبول طلب ' + member.fullName); } catch(e) {}
+      show('تم قبول الطلب وحفظ رمز الدخول للعضو');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO FINAL approve password fix error:', error);
+      show(error?.message || 'تعذر قبول الطلب بشكل صحيح');
+    }finally{
+      window.__linkoApproveSaving = false;
+    }
+  };
+
+  window.linkoRepairMemberPasswordFromRequest = async function(requestId){
+    try{
+      const signup = await getSignupAuthoritative(requestId);
+      if(!signup){ show('لم أجد طلب الاشتراك'); return; }
+      const member = makeMemberFromSignup(signup);
+      await setDoc(doc(db, MEMBERS_COLLECTION, member.id), { ...member, updatedAtServer: serverTimestamp() }, { merge: true });
+      upsertMemberLocal(member);
+      show('تم إصلاح رمز العضو من طلب الاشتراك');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error(error);
+      show(error?.message || 'تعذر إصلاح الرمز');
+    }
+  };
+
+  console.log('LINKO PHASE 7 approve/password final override loaded');
 </script>
-<!-- ===== /LINKO PHASE 7 ADMIN FINAL ===== -->
 
 </body>
 </html>
