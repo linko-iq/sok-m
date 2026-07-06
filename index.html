@@ -3147,175 +3147,155 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
 
 
-<!-- LINKO PHASE 7 CROSS-FILE FINAL SYNC: data requests + notifications -->
-<script type="module" id="linkoPhase7CrossFileFinalAdminSync">
+<!-- ===== LINKO PHASE 7 CONSERVATIVE PATCH: balance/password/notifications only ===== -->
+<script type="module" id="linko-phase7-conservative-admin-patch">
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
-
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 const firebaseConfig = {
-  apiKey: "AIzaSyBI_G4gS3WHQI-VF2JBUHPTACGFC3_s8y4",
-  authDomain: "medina-bazaar-e5d67.firebaseapp.com",
-  projectId: "medina-bazaar-e5d67",
-  storageBucket: "medina-bazaar-e5d67.firebasestorage.app",
-  messagingSenderId: "584827394228",
-  appId: "1:584827394228:web:2447944b4324a17b469fe1"
+  apiKey: "AIzaSyA0-hPPRwjvWPMcL2qgmLsEf0DzmXWIrq4",
+  authDomain: "linko-market.firebaseapp.com",
+  projectId: "linko-market",
+  storageBucket: "linko-market.firebasestorage.app",
+  messagingSenderId: "505941528794",
+  appId: "1:505941528794:web:4be4f63325f43f1861f9e4"
 };
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-const db = window.linkoFirestoreDB || getFirestore(app);
-const MEMBERS = 'linko_market_members';
-const DATA_REQ = 'linko_market_data_requests';
-const NOTIFICATIONS = 'linko_market_notifications';
-const LOCAL_MEMBERS = 'linko_market_members';
-const LOCAL_DATA_REQ = 'linko_market_data_requests';
-const LOCAL_NOTIFICATIONS = 'linko_market_notifications';
-const ADMIN_STATE_KEY = 'linko_admin_state';
-
-const clean = v => String(v ?? '').trim();
-const nowIQ = () => { try { return new Date().toLocaleString('ar-IQ'); } catch(e) { return new Date().toISOString(); } };
-const iso = () => new Date().toISOString();
-const show = msg => { try { window.toast(msg); } catch(e) { console.log(msg); } };
-const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-const qstr = v => `'${String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`;
-const readJSON = (k,f=[]) => { try { return JSON.parse(localStorage.getItem(k)||'null') ?? f; } catch(e) { return f; } };
-const writeJSON = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v||[])); } catch(e){} };
-const writeState = () => { try { localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state||{})); } catch(e){} };
-const parseAmount = txt => Number(String(txt||'').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[^0-9.-]/g,'')) || 0;
-
-function normMember(m={}){
-  const img = clean(m.img || m.avatar || m.image || m.photoURL || '');
-  const name = clean(m.fullName || m.name || '');
-  const username = clean(m.username || m.originalUsername || m.memberUsername || m.code || '');
-  return {
-    ...m, id:clean(m.id || m.memberId || ''), fullName:name, name:name, username, memberUsername:username,
-    phone:clean(m.phone || m.memberPhone || ''), address:clean(m.address || m.area || ''), area:clean(m.area || m.address || ''),
-    img, avatar:img, image:img, photoURL:img, balance:Number(m.balance||0),
-    status: (m.status==='stopped'||m.status==='blocked'||m.status==='موقوف') ? 'stopped' : 'active',
-    password:clean(m.password || m.pin || m.loginCode || m.accessCode || ''),
-    pin:clean(m.pin || m.password || ''), loginCode:clean(m.loginCode || m.password || ''), accessCode:clean(m.accessCode || m.password || '')
-  };
+const db = getFirestore(app);
+const MEMBERS='linko_market_members', DATA_REQ='linko_market_data_requests', NOTIF='linko_market_notifications';
+const clean=v=>String(v??'').trim();
+const now=()=>new Date().toLocaleString('ar-IQ');
+const toast=(m)=>{try{ if(typeof window.toast==='function') return window.toast(m);}catch(_){} alert(m)};
+const escJson=o=>JSON.parse(JSON.stringify(o||{}));
+function money(n){try{return new Intl.NumberFormat('ar-IQ').format(Number(n||0))+' د.ع'}catch(_){return String(n||0)}}
+function readLocal(k,d=[]){try{const v=JSON.parse(localStorage.getItem(k)||'null');return Array.isArray(v)||typeof v==='object'?v:d}catch(_){return d}}
+function writeLocal(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}}
+function parseAmount(v){const n=Number(String(v||'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?n:0}
+function normMember(m={}){const p=clean(m.password||m.pin||m.loginCode||m.accessCode||m.code);return {...m,id:clean(m.id||m.docId||m.username||Date.now()),fullName:m.fullName||m.name||'',name:m.name||m.fullName||'',username:m.username||m.code||'',phone:m.phone||'',address:m.address||m.area||'',area:m.area||m.address||'',img:m.img||m.avatar||m.image||'',avatar:m.avatar||m.img||m.image||'',balance:Number(m.balance||0),status:m.status||'active',password:p,pin:p,loginCode:p,accessCode:p,code:p||m.code||m.username||''}}
+function reqStatus(s){s=clean(s);return (!s||s==='pending'||s==='قيد المراجعة'||s==='بانتظار')?'pending':(s==='approved'||s==='مقبول'?'approved':(s==='rejected'||s==='مرفوض'?'rejected':s))}
+function reqType(r){return clean(r.requestType||r.type||r.field||'')}
+function reqValue(r){return clean(r.newData||r.newValue||r.value||r.password||r.amount||'')}
+async function findMemberForRequest(r){
+  let members=(window.state?.members||readLocal(MEMBERS,[])).map(normMember);
+  let m=members.find(x=>clean(x.id)===clean(r.memberId)||clean(x.username)===clean(r.memberUsername)||clean(x.fullName)===clean(r.memberName)||clean(x.name)===clean(r.memberName)||clean(x.phone)===clean(r.phone));
+  if(m) return {member:m, local:members};
+  const snap=await getDocs(collection(db,MEMBERS));
+  members=snap.docs.map(d=>normMember({...d.data(),id:d.id,docId:d.id}));
+  m=members.find(x=>clean(x.id)===clean(r.memberId)||clean(x.username)===clean(r.memberUsername)||clean(x.fullName)===clean(r.memberName)||clean(x.name)===clean(r.memberName)||clean(x.phone)===clean(r.phone));
+  return {member:m, local:members};
 }
-function normReq(r={}){
-  return {
-    ...r, id:clean(r.id || r.docId || ('data_'+Date.now())), memberId:clean(r.memberId || ''),
-    memberName:clean(r.memberName || r.name || ''), memberUsername:clean(r.memberUsername || r.username || ''), phone:clean(r.phone || r.memberPhone || ''),
-    type:clean(r.type || r.requestType || r.title || 'طلب تعديل بيانات'), currentData:clean(r.currentData || r.current || ''),
-    newData:clean(r.newData || r.text || r.details || r.newValue || ''), amount:Number(r.amount || r.balanceChange || 0),
-    newPassword:clean(r.newPassword || ''), password:clean(r.password || ''), field:clean(r.field || ''),
-    status:clean(r.status || 'pending'), createdAt:r.createdAt || r.date || nowIQ(), resolvedAt:r.resolvedAt || ''
-  };
+async function saveMember(member){
+  member=normMember(member);
+  const id=clean(member.id||member.docId||member.username);
+  await setDoc(doc(db,MEMBERS,id), escJson({...member,id,updatedAtText:now(),updatedAt:serverTimestamp()}), {merge:true});
+  const members=(window.state?.members||readLocal(MEMBERS,[])).map(normMember);
+  const next=[member,...members.filter(x=>clean(x.id)!==id && clean(x.username)!==clean(member.username))];
+  if(window.state) window.state.members=next;
+  writeLocal(MEMBERS,next);
+  return member;
 }
-function updateLocalMember(member){
-  const m=normMember(member); let list=(window.state?.members || readJSON(LOCAL_MEMBERS, [])).map(normMember); let found=false;
-  list=list.map(x=>{ const same=(m.id && x.id===m.id) || (m.username && x.username===m.username) || (m.phone && x.phone===m.phone); if(same){found=true; return {...x,...m};} return x; });
-  if(!found) list.unshift(m);
-  if(window.state) window.state.members=list;
-  writeJSON(LOCAL_MEMBERS,list); writeState();
-  return list;
+async function saveRequest(r){
+  const id=clean(r.id||r.docId);
+  if(id) await setDoc(doc(db,DATA_REQ,id), escJson({...r,id,status:r.status,updatedAtText:now(),updatedAt:serverTimestamp()}), {merge:true});
+  const rows=(window.state?.dataRequests||readLocal(DATA_REQ,[])).map(x=>clean(x.id)===id?{...x,...r}:x);
+  if(window.state) window.state.dataRequests=rows;
+  writeLocal(DATA_REQ,rows);
 }
-async function findMember(req){
-  const r=normReq(req);
-  if(r.memberId){ const ref=doc(db,MEMBERS,r.memberId); const s=await getDoc(ref).catch(()=>null); if(s?.exists()) return {ref,data:normMember({id:s.id,...s.data()})}; }
-  const checks=[];
-  if(r.memberUsername) checks.push(['username',r.memberUsername], ['memberUsername',r.memberUsername], ['originalUsername',r.memberUsername]);
-  if(r.phone) checks.push(['phone',r.phone]);
-  if(r.memberName) checks.push(['fullName',r.memberName], ['name',r.memberName]);
-  for(const [field,value] of checks){
-    const snap=await getDocs(query(collection(db,MEMBERS), where(field,'==',value), limit(1))).catch(()=>null);
-    if(snap && !snap.empty){ const d=snap.docs[0]; return {ref:doc(db,MEMBERS,d.id), data:normMember({id:d.id,...d.data()})}; }
+async function notifyMember(member,title,text,extra={}){
+  const id='notif_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+  const payload={id,title,text,type:'member',targetType:'عضو معين',targetMemberId:clean(member.id),memberId:clean(member.id),targetUsername:clean(member.username),memberUsername:clean(member.username),targetPhone:clean(member.phone),phone:clean(member.phone),createdAt:now(),createdAtMs:Date.now(),read:false,source:'admin_conservative_patch',...extra};
+  await setDoc(doc(db,NOTIF,id), escJson({...payload,createdAtServer:serverTimestamp()}), {merge:false});
+  window.state=window.state||{}; window.state.notifications=window.state.notifications||[]; window.state.notifications.unshift(payload);
+  try{localStorage.setItem('linko_market_notifications',JSON.stringify(window.state.notifications))}catch(_){}
+}
+function applyRequestToMember(member,r){
+  const t=reqType(r), val=reqValue(r), tl=t.toLowerCase();
+  const amount=Number(r.balanceChange||r.amount||parseAmount(val));
+  if(t.includes('رصيد') || r.field==='balance' || tl.includes('balance')){
+    if(!amount || amount<=0) throw new Error('مبلغ الرصيد غير صحيح');
+    member.balance=Number(member.balance||0)+amount;
+    return {title:'تم تحديث الرصيد', text:`تمت إضافة ${money(amount)} إلى حسابك. الرصيد الحالي: ${money(member.balance)}`};
   }
-  let local=(window.state?.members || readJSON(LOCAL_MEMBERS, [])).map(normMember).find(m =>
-    (r.memberId && m.id===r.memberId) || (r.memberUsername && m.username===r.memberUsername) || (r.phone && m.phone===r.phone) || (r.memberName && (m.fullName===r.memberName || m.name===r.memberName))
-  );
-  if(local?.id) return {ref:doc(db,MEMBERS,local.id), data:local};
-  return null;
-}
-function applyReq(member, req){
-  const m=normMember(member); const r=normReq(req); const t=(r.type+' '+r.field).toLowerCase(); const v=clean(r.newData);
-  if(t.includes('رصيد') || t.includes('balance')){
-    const amount = Number(r.amount || r.balanceChange || parseAmount(v));
-    if(amount <= 0) throw new Error('مبلغ الرصيد غير صحيح');
-    m.balance = Number(m.balance||0) + amount;
-    m.lastBalanceAdded = amount; m.lastBalanceAddedAt = nowIQ();
-  } else if(t.includes('كلمة') || t.includes('رمز') || t.includes('password') || r.newPassword || r.password){
-    const pass = clean(r.newPassword || r.password || v);
-    if(pass.length < 4) throw new Error('كلمة السر الجديدة قصيرة');
-    m.password = pass; m.pin = pass; m.loginCode = pass; m.accessCode = pass;
-  } else if(t.includes('اسم') || t.includes('name') || r.field==='fullName') {
-    m.fullName = v; m.name = v;
-  } else if(t.includes('هاتف') || t.includes('رقم') || t.includes('phone')) {
-    m.phone = v;
-  } else if(t.includes('عنوان') || t.includes('منطقة') || t.includes('address')) {
-    m.address = v; m.area = v;
-  } else if(t.includes('صورة') || t.includes('avatar') || t.includes('photo')) {
-    m.img = v; m.avatar = v; m.image = v; m.photoURL = v;
-  } else {
-    m.updateNote = v;
+  if(t.includes('كلمة') || t.includes('رمز') || r.field==='password'){
+    if(!val || val.length<4) throw new Error('كلمة السر الجديدة غير صحيحة');
+    member.password=val; member.pin=val; member.loginCode=val; member.accessCode=val; member.code=member.code||member.username||val;
+    return {title:'تم تغيير كلمة السر', text:'تمت الموافقة على تغيير كلمة السر الخاصة بحسابك.'};
   }
-  m.updatedAt = nowIQ(); m.updatedAtISO = iso();
-  return m;
-}
-async function getReq(id){
-  const str=clean(id); let local=(window.state?.dataRequests || readJSON(LOCAL_DATA_REQ, [])).find(x=>String(x.id)===str);
-  const s=await getDoc(doc(db,DATA_REQ,str)).catch(()=>null);
-  if(s?.exists()) return normReq({...local, id:s.id, ...s.data()});
-  return local ? normReq(local) : null;
-}
-function updateLocalReq(req){
-  const r=normReq(req); let list=(window.state?.dataRequests || readJSON(LOCAL_DATA_REQ, [])).map(normReq);
-  let found=false; list=list.map(x=>{ if(String(x.id)===String(r.id)){found=true; return {...x,...r};} return x; }); if(!found) list.unshift(r);
-  if(window.state) window.state.dataRequests=list; writeJSON(LOCAL_DATA_REQ,list); writeState();
+  if(t.includes('اسم') || r.field==='fullName' || r.field==='name'){
+    member.fullName=val; member.name=val;
+    return {title:'تم تحديث الاسم', text:'تمت الموافقة على تغيير الاسم.'};
+  }
+  if(t.includes('هاتف') || t.includes('رقم') || r.field==='phone'){
+    member.phone=val;
+    return {title:'تم تحديث رقم الهاتف', text:'تمت الموافقة على تغيير رقم الهاتف.'};
+  }
+  if(t.includes('عنوان') || r.field==='address'){
+    member.address=val; member.area=val;
+    return {title:'تم تحديث العنوان', text:'تمت الموافقة على تغيير العنوان.'};
+  }
+  if(t.includes('صورة') || r.field==='avatar' || r.field==='img'){
+    member.img=val||member.img; member.avatar=val||member.avatar;
+    return {title:'تم تحديث الصورة', text:'تمت الموافقة على تغيير الصورة.'};
+  }
+  member.notes=(member.notes||'')+'\n'+t+': '+val;
+  return {title:'تمت معالجة طلبك', text:'تمت الموافقة على طلبك من الإدارة.'};
 }
 window.approveDataRequest = async function(id){
-  if(window.__linkoApprovingDataReq) return; window.__linkoApprovingDataReq=true;
   try{
-    const req=await getReq(id); if(!req){ show('طلب التعديل غير موجود'); return; }
-    const found=await findMember(req); if(!found){ show('لم يتم العثور على العضو المرتبط بالطلب'); return; }
-    const member=applyReq(found.data, req);
-    const approved={...req, status:'approved', resolvedAt:nowIQ(), resolvedAtISO:iso()};
-    await setDoc(found.ref, JSON.parse(JSON.stringify({...member, updatedAtServer: serverTimestamp()})), {merge:true});
-    await setDoc(doc(db,DATA_REQ,approved.id), JSON.parse(JSON.stringify({...approved, updatedAtServer: serverTimestamp()})), {merge:true});
-    updateLocalMember(member); updateLocalReq(approved);
-    try{ if(typeof window.log==='function') window.log('موافقة طلب تعديل بيانات', `${approved.type} - ${approved.memberName}`); }catch(e){}
-    show('تمت الموافقة وتحديث حساب العضو مباشرة'); try{ window.render(); }catch(e){}
-  }catch(err){ console.error('LINKO approve data request final error:',err); show(err?.message || 'تعذر تنفيذ الموافقة'); }
-  finally{ window.__linkoApprovingDataReq=false; }
+    const rows=(window.state?.dataRequests||readLocal(DATA_REQ,[]));
+    let r=rows.find(x=>clean(x.id)===clean(id)||clean(x.docId)===clean(id));
+    if(!r){ const s=await getDoc(doc(db,DATA_REQ,clean(id))); if(s.exists()) r={...s.data(),id:s.id,docId:s.id}; }
+    if(!r) return toast('لم يتم العثور على الطلب');
+    const {member}=await findMemberForRequest(r);
+    if(!member) return toast('لم يتم العثور على العضو المرتبط بالطلب');
+    const note=applyRequestToMember(member,r);
+    await saveMember(member);
+    r.status='approved'; r.resolvedAt=now(); r.approvedAt=now(); r.adminNote='تمت الموافقة من الإدارة';
+    await saveRequest(r);
+    await notifyMember(member,note.title,note.text,{action:'data_request_approved',requestId:clean(r.id),requestType:reqType(r)});
+    try{ if(typeof window.log==='function') window.log('موافقة طلب تعديل بيانات',`${reqType(r)} - ${member.fullName||member.name}`); }catch(_){}
+    try{ if(typeof window.render==='function') window.render(); }catch(_){}
+    toast('تمت الموافقة وتحديث بيانات العضو وإرسال إشعار');
+  }catch(err){console.error('approveDataRequest conservative patch error',err); toast(err.message||'تعذر تنفيذ الموافقة');}
 };
 window.rejectDataRequest = async function(id){
-  try{ const req=await getReq(id); if(!req) return; const r={...req,status:'rejected',resolvedAt:nowIQ(),resolvedAtISO:iso()}; await setDoc(doc(db,DATA_REQ,r.id), JSON.parse(JSON.stringify({...r,updatedAtServer:serverTimestamp()})), {merge:true}); updateLocalReq(r); show('تم رفض الطلب'); try{window.render()}catch(e){} }catch(err){console.error(err);show('تعذر رفض الطلب')}
+  try{
+    const rows=(window.state?.dataRequests||readLocal(DATA_REQ,[]));
+    let r=rows.find(x=>clean(x.id)===clean(id)||clean(x.docId)===clean(id));
+    if(!r){ const s=await getDoc(doc(db,DATA_REQ,clean(id))); if(s.exists()) r={...s.data(),id:s.id,docId:s.id}; }
+    if(!r) return toast('لم يتم العثور على الطلب');
+    const {member}=await findMemberForRequest(r);
+    r.status='rejected'; r.resolvedAt=now(); r.adminNote='تم الرفض من الإدارة';
+    await saveRequest(r);
+    if(member) await notifyMember(member,'تم رفض الطلب',`تم رفض طلب: ${reqType(r)}`,{action:'data_request_rejected',requestId:clean(r.id)});
+    try{ if(typeof window.render==='function') window.render(); }catch(_){}
+    toast('تم رفض الطلب وإرسال إشعار');
+  }catch(err){console.error('rejectDataRequest patch error',err); toast('تعذر رفض الطلب');}
 };
-
-function targetOptions(type){
-  const t=clean(type); const members=(window.state?.members||readJSON(LOCAL_MEMBERS,[])).map(normMember); const branches=(window.state?.branches||[]);
-  if(t==='عضو معين') return `<div class="field" id="nTargetWrap"><label>اختر العضو</label><select id="nTarget">${members.map(m=>`<option value="${esc(m.id||m.username||m.phone)}" data-name="${esc(m.fullName||m.name)}">${esc(m.fullName||m.name||'-')} - ${esc(m.phone||m.username||'')}</option>`).join('')}</select></div>`;
-  if(t==='فرع معين') return `<div class="field" id="nTargetWrap"><label>اختر الفرع</label><select id="nTarget">${branches.map(b=>`<option value="${esc(b.id)}" data-name="${esc(b.name)}">${esc(b.name)}</option>`).join('')}</select></div>`;
-  return `<div class="field" id="nTargetWrap"><label>النطاق</label><select id="nTarget"><option value="all">كل الأعضاء</option></select></div>`;
-}
-window.linkoUpdateNotificationTarget=function(){ const wrap=document.getElementById('nTargetWrap'); const type=document.getElementById('nType')?.value||'عام'; if(wrap) wrap.outerHTML=targetOptions(type); };
-const oldNotifications = window.notifications;
-window.notifications = function(){
-  const pending=(window.state?.adminMessages||[]).filter(x=>x.status==='pending'); const done=(window.state?.adminMessages||[]).filter(x=>x.status!=='pending'); const history=(window.state?.notifications||readJSON(LOCAL_NOTIFICATIONS,[]));
-  const adminCards = pending.length && typeof window.adminRequestCard==='function' ? pending.map(window.adminRequestCard).join('') : '<div class="empty">لا توجد طلبات إدارية بانتظار المعالجة</div>';
-  return `<div class="panel"><div class="panel-head"><div><h2>صندوق طلبات الإدارة</h2><p>طلبات عامة تحتاج متابعة الإدارة.</p></div><span class="status ${pending.length?'bad':'ok'}">${pending.length} بانتظار</span></div><div class="cards">${adminCards}</div></div>
-  <div class="panel"><div class="panel-head"><div><h2>الإشعارات</h2><p>إرسال إشعار عام، لفرع، أو لعضو محدد. يحفظ مباشرة في Firebase.</p></div></div><div class="form-grid"><div class="field"><label>نوع الإرسال</label><select id="nType" onchange="linkoUpdateNotificationTarget()"><option>عام</option><option>فرع معين</option><option>عضو معين</option></select></div>${targetOptions('عام')}<div class="field"><label>العنوان</label><input class="input" id="nTitle"></div><div class="field wide"><label>نص الإشعار</label><textarea id="nText"></textarea></div><button class="btn wide" onclick="sendNotification()">إرسال الإشعار</button></div></div>
-  <div class="panel"><h2>سجل الإشعارات والطلبات المعالجة</h2><div class="timeline">${[...history,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',createdAt:x.time}))].length?[...history,...done.map(x=>({title:x.title,text:x.details,type:'طلب معالج',createdAt:x.time}))].map(n=>`<div class="log"><h3>${esc(n.title||'-')}</h3><p>${esc(n.text||'')}<br><span class="muted">${esc(n.targetName||n.type||'إشعار')} • ${esc(n.createdAt||n.time||'')}</span></p></div>`).join(''):'<div class="empty">لا توجد إشعارات</div>'}</div></div>`;
+const oldAddWallet=window.addWallet;
+window.addWallet=async function(id){
+  const before=(window.state?.members||[]).map(normMember).find(m=>clean(m.id)===clean(id));
+  if(oldAddWallet) await oldAddWallet(id);
+  try{
+    const amount=parseAmount(document.getElementById('qwAmount')?.value);
+    const member=(window.state?.members||[]).map(normMember).find(m=>clean(m.id)===clean(id))||before;
+    if(member && amount>0) await notifyMember(member,'تم تحديث الرصيد',`تمت إضافة ${money(amount)} إلى حسابك.`,{action:'wallet_added',amount});
+  }catch(e){console.warn('wallet notification skipped',e)}
 };
 window.sendNotification = async function(){
-  const title=clean(document.getElementById('nTitle')?.value), text=clean(document.getElementById('nText')?.value), type=clean(document.getElementById('nType')?.value||'عام');
-  if(!title || !text){ show('أكمل العنوان والنص'); return; }
-  const target=document.getElementById('nTarget'); const targetId=clean(target?.value||'all'); const targetName=target?.selectedOptions?.[0]?.dataset?.name || target?.selectedOptions?.[0]?.textContent || 'كل الأعضاء';
-  const id='notif_'+Date.now();
-  const n={id,title,text,type,targetType:type,targetId,targetName,audience:type==='عام'?'all':(type==='عضو معين'?'member':'branch'),memberId:type==='عضو معين'?targetId:'',branchId:type==='فرع معين'?targetId:'',createdAt:nowIQ(),createdAtISO:iso(),status:'active',source:'admin_phase7_final'};
   try{
-    await setDoc(doc(db,NOTIFICATIONS,id), JSON.parse(JSON.stringify({...n,createdAtServer:serverTimestamp()})), {merge:false});
-    const list=[n,...(window.state?.notifications||readJSON(LOCAL_NOTIFICATIONS,[]))]; if(window.state) window.state.notifications=list; writeJSON(LOCAL_NOTIFICATIONS,list); writeState();
-    try{ if(typeof window.log==='function') window.log('إرسال إشعار', 'تم إرسال إشعار: '+title); }catch(e){}
-    show('تم إرسال الإشعار وحفظه في Firebase'); try{window.render()}catch(e){}
-  }catch(err){ console.error('send notification final error',err); show('تعذر إرسال الإشعار'); }
+    const title=clean(document.getElementById('nTitle')?.value), text=clean(document.getElementById('nText')?.value), type=clean(document.getElementById('nType')?.value)||'عام';
+    if(!title||!text) return toast('أكمل العنوان والنص');
+    const id='notif_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    const payload={id,title,text,type, targetType:type, createdAt:now(), createdAtMs:Date.now(), read:false, source:'admin_manual_notification'};
+    await setDoc(doc(db,NOTIF,id), escJson({...payload,createdAtServer:serverTimestamp()}), {merge:false});
+    window.state=window.state||{}; window.state.notifications=window.state.notifications||[]; window.state.notifications.unshift(payload);
+    try{localStorage.setItem('linko_market_notifications',JSON.stringify(window.state.notifications))}catch(_){}
+    try{ if(typeof window.log==='function') window.log('إرسال إشعار','تم إرسال إشعار: '+title); }catch(_){}
+    try{ if(typeof window.save==='function') window.save(); if(typeof window.render==='function') window.render(); }catch(_){}
+    toast('تم إرسال الإشعار');
+  }catch(err){console.error('sendNotification patch error',err); toast('تعذر إرسال الإشعار');}
 };
-try{
-  onSnapshot(collection(db,NOTIFICATIONS), snap=>{ const rows=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.createdAtISO||b.createdAt||'').localeCompare(String(a.createdAtISO||a.createdAt||''))); if(window.state) window.state.notifications=rows; writeJSON(LOCAL_NOTIFICATIONS,rows); writeState(); try{ const sec=(typeof active!=='undefined'?active:''); if(sec==='notifications') window.render(); }catch(e){} });
-}catch(e){ console.warn('notifications listener skipped',e); }
-console.log('LINKO Phase7 Cross-file Admin final sync loaded');
+console.log('LINKO conservative admin patch loaded: data requests + notifications only');
 </script>
 
 </body>
