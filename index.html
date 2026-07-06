@@ -1970,5 +1970,190 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   waitForAuth();
 </script>
 
+
+<script type="module" id="linkoFirebaseBranchesAdminPhase3">
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+  const BRANCH_COLLECTION = 'linko_market_branches';
+  const BRANCH_LOCAL_KEY = 'linko_market_branches';
+  const PRODUCT_LOCAL_KEY = 'linko_market_products';
+  const ADMIN_STATE_KEY = 'linko_admin_state';
+  let linkoBranchesReady = false;
+  let linkoBranchesLoading = false;
+  let linkoBranchesSaving = false;
+
+  const showToast = (msg) => { try { window.toast(msg); } catch(e) { console.log(msg); } };
+  const nowIQ = () => new Date().toLocaleString('ar-IQ');
+  const safeJSON = (v) => JSON.parse(JSON.stringify(v || {}));
+  const normStatus = (s) => (s === 'hidden' || s === 'stopped' || s === 'مخفي' || s === 'موقوف' || s === false) ? 'hidden' : 'visible';
+  const readLocalBranches = () => { try { return JSON.parse(localStorage.getItem(BRANCH_LOCAL_KEY) || '[]') || []; } catch(e){ return []; } };
+  const readLocalProducts = () => { try { return JSON.parse(localStorage.getItem(PRODUCT_LOCAL_KEY) || '[]') || []; } catch(e){ return []; } };
+  const writeAdminState = () => { try { localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state || {})); } catch(e){} };
+  const writeLocalBranches = (rows) => {
+    const branches = Array.isArray(rows) ? rows : [];
+    try { localStorage.setItem(BRANCH_LOCAL_KEY, JSON.stringify(branches)); } catch(e) {}
+    try { window.state = window.state || {}; window.state.branches = branches; writeAdminState(); } catch(e) {}
+  };
+  const cleanBranch = (b, i = 0) => ({
+    id: String(b.id || Date.now() + i),
+    name: String(b.name || '').trim(),
+    icon: String(b.icon || 'storefront').trim() || 'storefront',
+    img: String(b.img || b.image || b.photo || ''),
+    status: normStatus(b.status),
+    order: Number.isFinite(Number(b.order)) ? Number(b.order) : (i + 1),
+    updatedAtText: b.updatedAtText || nowIQ()
+  });
+  const sortBranches = (rows) => [...(rows || [])].map(cleanBranch).sort((a,b) => (Number(a.order)||0) - (Number(b.order)||0));
+  const saveBranchDoc = async (branch) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    const data = {...cleanBranch(branch), updatedAtText: nowIQ(), updatedAt: serverTimestamp()};
+    await setDoc(doc(db, BRANCH_COLLECTION, String(data.id)), safeJSON(data), { merge: false });
+  };
+  const deleteBranchDoc = async (id) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    await deleteDoc(doc(db, BRANCH_COLLECTION, String(id)));
+  };
+  const productsCountForBranch = (id) => {
+    const products = window.state?.products?.length ? window.state.products : readLocalProducts();
+    return (products || []).filter(p => String(p.branchId) === String(id)).length;
+  };
+
+  const loadBranchesFromFirestore = async () => {
+    if(linkoBranchesLoading) return;
+    const db = window.linkoFirestoreDB;
+    const auth = window.linkoFirebaseAuth;
+    if(!db || !auth?.currentUser) return;
+    linkoBranchesLoading = true;
+    try{
+      const snap = await getDocs(collection(db, BRANCH_COLLECTION));
+      const cloudBranches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if(cloudBranches.length){
+        writeLocalBranches(sortBranches(cloudBranches));
+      }else{
+        const localBranches = sortBranches(window.state?.branches?.length ? window.state.branches : readLocalBranches());
+        if(localBranches.length){
+          await Promise.all(localBranches.map(b => saveBranchDoc(b)));
+          writeLocalBranches(localBranches);
+        }
+      }
+      linkoBranchesReady = true;
+      try { window.render(); } catch(e) {}
+      showToast('تم تحميل الفروع من Firebase');
+    }catch(error){
+      console.error('LINKO branches Firestore load error:', error);
+      showToast('تعذر تحميل الفروع من Firebase');
+    }finally{
+      linkoBranchesLoading = false;
+    }
+  };
+
+  const originalBranchesView = window.branches;
+  window.branches = function(){
+    if(!linkoBranchesReady && window.linkoFirebaseAuth?.currentUser){ setTimeout(loadBranchesFromFirestore, 0); }
+    return originalBranchesView ? originalBranchesView() : '<div class="panel"><h2>إدارة الفروع</h2></div>';
+  };
+
+  window.saveBranch = async function(id){
+    if(linkoBranchesSaving) return;
+    const data = cleanBranch({
+      id: id ? String(id) : String(Date.now()),
+      name: document.getElementById('bName')?.value || '',
+      icon: document.getElementById('bIcon')?.value || 'storefront',
+      img: document.getElementById('bImg')?.value || '',
+      status: document.getElementById('bStatus')?.value || 'visible',
+      order: document.getElementById('bOrder')?.value || 1,
+      updatedAtText: nowIQ()
+    });
+    if(!data.name){ showToast('اكتب اسم الفرع'); return; }
+    linkoBranchesSaving = true;
+    try{
+      const current = sortBranches(window.state?.branches?.length ? window.state.branches : readLocalBranches());
+      let next;
+      if(id){
+        let found = false;
+        const old = current.find(b => String(b.id) === String(id));
+        next = current.map(b => { if(String(b.id) === String(id)){ found = true; return data; } return b; });
+        if(!found) next.unshift(data);
+        try{
+          (window.state.products || []).forEach(p => { if(String(p.branchId) === String(id)){ p.branchName = data.name; p.branch = data.name; } });
+          if(old && old.name !== data.name){
+            (window.state.products || []).forEach(p => { if(String(p.branch) === String(old.name)){ p.branch = data.name; p.branchName = data.name; p.branchId = data.id; } });
+          }
+        }catch(e){}
+      }else{
+        next = [data, ...current.filter(b => String(b.id) !== String(data.id))];
+      }
+      writeLocalBranches(sortBranches(next));
+      await saveBranchDoc(data);
+      try{
+        window.state.logs = window.state.logs || [];
+        window.state.logs.unshift({id: Date.now(), type: id ? 'تعديل فرع' : 'إضافة فرع', by: 'مدير النظام', time: nowIQ(), details: 'تم حفظ ' + data.name});
+        writeAdminState();
+      }catch(e){}
+      if(typeof window.closeModal === 'function') window.closeModal();
+      showToast('تم حفظ الفرع في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO branch save error:', error);
+      showToast('تعذر حفظ الفرع في Firebase');
+    }finally{
+      linkoBranchesSaving = false;
+    }
+  };
+
+  window.toggleBranch = async function(id){
+    const current = sortBranches(window.state?.branches?.length ? window.state.branches : readLocalBranches());
+    const branch = current.find(b => String(b.id) === String(id));
+    if(!branch){ showToast('الفرع غير موجود'); return; }
+    branch.status = branch.status === 'visible' ? 'hidden' : 'visible';
+    branch.updatedAtText = nowIQ();
+    try{
+      writeLocalBranches(current);
+      await saveBranchDoc(branch);
+      showToast('تم تغيير حالة الفرع');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO branch toggle error:', error);
+      showToast('تعذر تحديث حالة الفرع في Firebase');
+    }
+  };
+
+  window.deleteBranch = async function(id){
+    const count = productsCountForBranch(id);
+    if(count > 0){ showToast('لا يمكن حذف هذا الفرع لأنه يحتوي على منتجات. انقل أو احذف المنتجات أولاً.'); return; }
+    if(!confirm('تأكيد حذف الفرع؟')) return;
+    const current = sortBranches(window.state?.branches?.length ? window.state.branches : readLocalBranches());
+    const branch = current.find(b => String(b.id) === String(id));
+    const next = current.filter(b => String(b.id) !== String(id));
+    try{
+      writeLocalBranches(next);
+      await deleteBranchDoc(id);
+      try{
+        window.state.logs = window.state.logs || [];
+        window.state.logs.unshift({id: Date.now(), type: 'حذف فرع', by: 'مدير النظام', time: nowIQ(), details: 'تم حذف ' + (branch?.name || '')});
+        writeAdminState();
+      }catch(e){}
+      showToast('تم حذف الفرع من Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO branch delete error:', error);
+      showToast('تعذر حذف الفرع من Firebase');
+    }
+  };
+
+  const waitForAuth = () => {
+    if(window.linkoFirebaseAuth){
+      onAuthStateChanged(window.linkoFirebaseAuth, (user) => {
+        if(user) setTimeout(loadBranchesFromFirestore, 250);
+        else linkoBranchesReady = false;
+      });
+    }else{ setTimeout(waitForAuth, 200); }
+  };
+  waitForAuth();
+</script>
+
 </body>
 </html>
