@@ -2155,5 +2155,239 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   waitForAuth();
 </script>
 
+
+<!-- LINKO FIREBASE MEMBERS - ADMIN PRODUCTION PHASE 4 -->
+<script type="module" id="linkoFirebaseMembersAdminPhase4">
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+  const MEMBER_COLLECTION = 'linko_market_members';
+  const MEMBER_LOCAL_KEY = 'linko_market_members';
+  const ADMIN_STATE_KEY = 'linko_admin_state';
+  let linkoMembersReady = false;
+  let linkoMembersLoading = false;
+  let linkoMembersSaving = false;
+
+  const showToast = (msg) => { try { window.toast(msg); } catch(e) { console.log(msg); } };
+  const nowIQ = () => new Date().toLocaleString('ar-IQ');
+  const safeJSON = (v) => JSON.parse(JSON.stringify(v || {}));
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const money = (v) => { try { return window.money ? window.money(Number(v)||0) : ((Number(v)||0).toLocaleString('ar-IQ') + ' د.ع'); } catch(e){ return String(v||0); } };
+  const initial = (name) => { try { return window.memberInitial ? window.memberInitial(name||'') : String(name||'ع').trim().slice(0,1); } catch(e){ return 'ع'; } };
+  const statusText = (s) => { try { return window.statusText ? window.statusText(s) : (s==='stopped'?'موقوف':'مفعل'); } catch(e){ return s; } };
+  const cls = (s) => { try { return window.cls ? window.cls(s) : (s==='active'?'ok':'bad'); } catch(e){ return s==='active'?'ok':'bad'; } };
+  const readLocalMembers = () => { try { return JSON.parse(localStorage.getItem(MEMBER_LOCAL_KEY) || '[]') || []; } catch(e){ return []; } };
+  const writeAdminState = () => { try { localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state || {})); } catch(e){} };
+  const normStatus = (s) => (s === 'stopped' || s === 'blocked' || s === 'موقوف' || s === 'مغلق' || s === false) ? 'stopped' : 'active';
+  const cleanMember = (m, i = 0) => {
+    const id = String(m.id || ('member_' + Date.now() + '_' + i));
+    const name = String(m.name || m.fullName || '').trim();
+    const img = String(m.img || m.avatar || m.image || '');
+    const username = String(m.username || m.code || '').trim();
+    const address = String(m.address || m.area || '').trim();
+    return {
+      id,
+      name,
+      fullName: name,
+      username,
+      code: username,
+      phone: String(m.phone || '').trim(),
+      address,
+      area: address,
+      balance: Number(m.balance || 0),
+      status: normStatus(m.status),
+      createdAt: String(m.createdAt || m.created || m.date || nowIQ()),
+      img,
+      avatar: img,
+      password: String(m.password || '')
+    };
+  };
+  const sortMembers = (rows) => [...(rows || [])].map(cleanMember).sort((a,b) => String(a.name||'').localeCompare(String(b.name||''), 'ar'));
+  const writeLocalMembers = (rows) => {
+    const members = sortMembers(rows);
+    try { localStorage.setItem(MEMBER_LOCAL_KEY, JSON.stringify(members)); } catch(e) {}
+    try { window.state = window.state || {}; window.state.members = members; writeAdminState(); } catch(e) {}
+  };
+  const saveMemberDoc = async (member) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    const data = {...cleanMember(member), updatedAtText: nowIQ(), updatedAt: serverTimestamp()};
+    await setDoc(doc(db, MEMBER_COLLECTION, String(data.id)), safeJSON(data), { merge: false });
+  };
+  const deleteMemberDoc = async (id) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    await deleteDoc(doc(db, MEMBER_COLLECTION, String(id)));
+  };
+  const logAction = (type, details) => {
+    try{
+      window.state.logs = window.state.logs || [];
+      window.state.logs.unshift({id: Date.now(), type, by: 'مدير النظام', time: nowIQ(), details});
+      writeAdminState();
+    }catch(e){}
+  };
+
+  const loadMembersFromFirestore = async () => {
+    if(linkoMembersLoading) return;
+    const db = window.linkoFirestoreDB;
+    const auth = window.linkoFirebaseAuth;
+    if(!db || !auth?.currentUser) return;
+    linkoMembersLoading = true;
+    try{
+      const snap = await getDocs(collection(db, MEMBER_COLLECTION));
+      const cloudMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if(cloudMembers.length){
+        writeLocalMembers(cloudMembers);
+      }else{
+        const localMembers = sortMembers(window.state?.members?.length ? window.state.members : readLocalMembers());
+        if(localMembers.length){
+          await Promise.all(localMembers.map(m => saveMemberDoc(m)));
+          writeLocalMembers(localMembers);
+        }else{
+          writeLocalMembers([]);
+        }
+      }
+      linkoMembersReady = true;
+      try { window.render(); } catch(e) {}
+      showToast('تم تحميل الأعضاء من Firebase');
+    }catch(error){
+      console.error('LINKO members Firestore load error:', error);
+      showToast('تعذر تحميل الأعضاء من Firebase');
+    }finally{
+      linkoMembersLoading = false;
+    }
+  };
+
+  window.members = function(){
+    if(!linkoMembersReady && window.linkoFirebaseAuth?.currentUser){ setTimeout(loadMembersFromFirestore, 0); }
+    const q = (document.getElementById('memSearch')?.value || '').trim();
+    const list = sortMembers(window.state?.members || []).filter(m => !q || [m.name,m.username,m.phone,m.address,m.status].join(' ').includes(q));
+    return `<div class="panel"><div class="panel-head"><div><h2>إدارة الأعضاء</h2><p>الأعضاء مربوطون مباشرة مع Firebase: إضافة، تعديل، رصيد، حالة، وحذف.</p></div><button class="btn mini" onclick="openMember()">+ إضافة عضو</button></div><div class="tools"><input class="input" id="memSearch" oninput="linkoStableSearch(this)" value="${esc(q)}" placeholder="بحث بالاسم أو اسم المستخدم أو الهاتف"><select><option>كل الحالات</option></select><button class="btn secondary" onclick="render()">بحث</button></div><div class="cards">${list.length ? list.map(m => `<div class="member-card"><div class="member-avatar">${m.img ? `<img src="${esc(m.img)}" alt="${esc(m.name)}">` : initial(m.name)}</div><div class="member-info"><h3>${esc(m.name)} <span class="status ${cls(m.status)}">${statusText(m.status)}</span></h3><p class="muted">اسم المستخدم: ${esc(m.username||'-')} • الهاتف: ${esc(m.phone||'-')} • العنوان: ${esc(m.address||'-')} • التسجيل: ${esc(m.createdAt||'-')}</p><h3>الرصيد: ${money(m.balance)}</h3></div><div class="actions-row"><button class="btn mini" onclick="quickWallet('${esc(m.id)}')">إضافة رصيد</button><button class="btn secondary mini" onclick="openMember('${esc(m.id)}')">تعديل</button><button class="btn warn mini" onclick="toggleMember('${esc(m.id)}')">${m.status==='active'?'إيقاف':'تفعيل'}</button><button class="btn danger mini" onclick="deleteMember('${esc(m.id)}')">حذف</button></div></div>`).join('') : '<div class="empty">لا يوجد أعضاء حالياً</div>'}</div></div>`;
+  };
+
+  window.openMember = function(id){
+    const m = id ? sortMembers(window.state?.members || []).find(x => String(x.id) === String(id)) : {id:'',name:'',username:'',phone:'',address:'',balance:0,status:'active',createdAt:new Date().toLocaleDateString('ar-IQ'),img:''};
+    const imgSrc = m?.img || '';
+    window.openModal(id ? 'تعديل عضو' : 'إضافة عضو', `<div class="form-grid"><div class="field"><label>الاسم</label><input class="input" id="mName" value="${esc(m?.name||'')}"></div><div class="field"><label>اسم المستخدم</label><input class="input" id="mUsername" value="${esc(m?.username||'')}"></div><div class="field"><label>الهاتف</label><input class="input" id="mPhone" value="${esc(m?.phone||'')}"></div><div class="field"><label>العنوان</label><input class="input" id="mAddress" value="${esc(m?.address||'')}"></div><div class="field"><label>الرصيد</label><input class="input" id="mBalance" type="number" value="${Number(m?.balance||0)}"></div><div class="field"><label>الحالة</label><select id="mStatus"><option value="active" ${m?.status==='active'?'selected':''}>مفعل</option><option value="stopped" ${m?.status==='stopped'?'selected':''}>موقوف</option></select></div><div class="field"><label>تاريخ التسجيل</label><input class="input" id="mCreatedAt" value="${esc(m?.createdAt||'')}"></div><div class="compact-image-picker"><div class="compact-image-preview" id="mImgPreviewBox">${imgSrc?`<img src="${esc(imgSrc)}" alt="صورة العضو">`:'صورة'}</div><div><label style="display:block;margin-bottom:7px;font-weight:900;color:#344054">صورة العضو</label><input class="image-hidden-input" id="mFile" type="file" accept="image/*" onchange="handleCompactImageUpload(event,'mImg','mImgPreviewBox','صورة')"><input type="hidden" id="mImg" value="${esc(imgSrc)}"><label class="upload-label" for="mFile"><span class="material-symbols-rounded">add_photo_alternate</span> اختيار صورة</label><div class="image-actions"><button type="button" class="btn secondary mini" onclick="previewCompactImage('mImg')">معاينة</button><button type="button" class="btn danger mini" onclick="clearCompactImage('mImg','mImgPreviewBox','صورة')">حذف الصورة</button></div><small class="image-help">الصورة تعرض كاملة بدون قص.</small></div></div><button type="button" class="btn wide" onclick="saveMember('${esc(id||'')}')">حفظ العضو</button></div>`);
+  };
+
+  window.saveMember = async function(id){
+    if(linkoMembersSaving) return;
+    const data = cleanMember({
+      id: id ? String(id) : String(Date.now()),
+      name: document.getElementById('mName')?.value || '',
+      username: document.getElementById('mUsername')?.value || '',
+      phone: document.getElementById('mPhone')?.value || '',
+      address: document.getElementById('mAddress')?.value || '',
+      balance: document.getElementById('mBalance')?.value || 0,
+      status: document.getElementById('mStatus')?.value || 'active',
+      createdAt: document.getElementById('mCreatedAt')?.value || nowIQ(),
+      img: document.getElementById('mImg')?.value || ''
+    });
+    if(!data.name || !data.phone){ showToast('أكمل الاسم والهاتف'); return; }
+    linkoMembersSaving = true;
+    try{
+      const current = sortMembers(window.state?.members || readLocalMembers());
+      const next = id ? current.map(m => String(m.id) === String(id) ? data : m) : [data, ...current.filter(m => String(m.id) !== String(data.id))];
+      writeLocalMembers(next);
+      await saveMemberDoc(data);
+      logAction(id ? 'تعديل عضو' : 'إضافة عضو', 'تم حفظ ' + data.name);
+      if(typeof window.closeModal === 'function') window.closeModal();
+      showToast('تم حفظ العضو في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO member save error:', error);
+      showToast('تعذر حفظ العضو في Firebase');
+    }finally{
+      linkoMembersSaving = false;
+    }
+  };
+
+  window.toggleMember = async function(id){
+    const current = sortMembers(window.state?.members || readLocalMembers());
+    const member = current.find(m => String(m.id) === String(id));
+    if(!member){ showToast('العضو غير موجود'); return; }
+    member.status = member.status === 'active' ? 'stopped' : 'active';
+    try{
+      writeLocalMembers(current);
+      await saveMemberDoc(member);
+      logAction('تغيير حالة عضو', 'تم تغيير حالة ' + member.name);
+      showToast('تم تغيير حالة العضو');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO member toggle error:', error);
+      showToast('تعذر تحديث حالة العضو في Firebase');
+    }
+  };
+
+  window.deleteMember = async function(id){
+    if(!confirm('تأكيد حذف العضو؟')) return;
+    const current = sortMembers(window.state?.members || readLocalMembers());
+    const member = current.find(m => String(m.id) === String(id));
+    const next = current.filter(m => String(m.id) !== String(id));
+    try{
+      writeLocalMembers(next);
+      await deleteMemberDoc(id);
+      logAction('حذف عضو', 'تم حذف ' + (member?.name || ''));
+      showToast('تم حذف العضو من Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO member delete error:', error);
+      showToast('تعذر حذف العضو من Firebase');
+    }
+  };
+
+  window.quickWallet = function(id){
+    const m = sortMembers(window.state?.members || []).find(x => String(x.id) === String(id));
+    if(!m){ showToast('العضو غير موجود'); return; }
+    window.openModal('إضافة رصيد', `<div class="form-grid"><div class="field wide"><label>العضو</label><input class="input" value="${esc(m.name)} - ${esc(m.phone)}" disabled></div><div class="field"><label>المبلغ</label><input class="input" id="qwAmount" type="number" placeholder="مثلاً 25000"></div><div class="field"><label>ملاحظة</label><input class="input" id="qwNote" placeholder="سبب الإضافة"></div><button class="btn wide" onclick="addWallet('${esc(id)}')">إضافة الرصيد</button></div>`);
+  };
+
+  window.addWallet = async function(id){
+    const amount = Number(document.getElementById('qwAmount')?.value || 0);
+    const note = document.getElementById('qwNote')?.value || '';
+    if(amount <= 0){ showToast('اكتب مبلغ صحيح'); return; }
+    const current = sortMembers(window.state?.members || readLocalMembers());
+    const member = current.find(m => String(m.id) === String(id));
+    if(!member){ showToast('العضو غير موجود'); return; }
+    member.balance = Number(member.balance || 0) + amount;
+    try{
+      writeLocalMembers(current);
+      await saveMemberDoc(member);
+      logAction('إضافة رصيد', `تم إضافة ${money(amount)} للعضو ${member.name}. ${note}`);
+      if(typeof window.closeModal === 'function') window.closeModal();
+      showToast('تمت إضافة الرصيد وحفظه في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO wallet save error:', error);
+      showToast('تعذر حفظ الرصيد في Firebase');
+    }
+  };
+
+  const oldApproveReq = window.approveReq;
+  window.approveReq = async function(id){
+    try{
+      if(typeof oldApproveReq === 'function') oldApproveReq(id);
+      const newest = sortMembers(window.state?.members || [])[0];
+      if(newest) await saveMemberDoc(newest);
+      writeLocalMembers(window.state?.members || []);
+      showToast('تم قبول الطلب وحفظ العضو في Firebase');
+    }catch(error){
+      console.error('LINKO approve member save error:', error);
+      showToast('تم القبول محلياً، لكن تعذر حفظ العضو في Firebase');
+    }
+  };
+
+  const waitForAuth = () => {
+    if(window.linkoFirebaseAuth){
+      onAuthStateChanged(window.linkoFirebaseAuth, (user) => {
+        if(user) setTimeout(loadMembersFromFirestore, 350);
+        else linkoMembersReady = false;
+      });
+    }else{ setTimeout(waitForAuth, 200); }
+  };
+  waitForAuth();
+</script>
+
 </body>
 </html>
