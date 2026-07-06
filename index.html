@@ -2746,6 +2746,141 @@ initTheme();buildNav();render();
 </script>
 <!-- ===== /LINKO SINGLE FILE ADMIN EMBED PATCH ===== -->
 
+
+
+<!-- ===== LINKO PATCH: admin visibility + premium splash/login intro ===== -->
+<style id="linkoDevGateAndSplashPatch">
+  /* زر دخول الإدارة يظهر فقط في بوابة دخول الأعضاء */
+  .linko-admin-entry{display:none!important}
+  body.linko-auth-visible .linko-admin-entry{
+    display:inline-flex!important;
+    position:fixed!important;
+    top:calc(env(safe-area-inset-top,0px) + 14px)!important;
+    left:14px!important;
+    z-index:9998!important;
+  }
+
+  /* زر الرجوع الثابت داخل نافذة الإدارة ملغي حتى لا يبقى فوق اللوحة */
+  .linko-admin-frame-top{display:none!important}
+
+  /* زر رجوع الأعضاء داخل شاشة دخول الإدارة فقط */
+  .linko-admin-login-back{
+    width:100%!important;
+    min-height:46px!important;
+    margin-top:10px!important;
+    border-radius:16px!important;
+    background:#fff!important;
+    color:#111827!important;
+    border:1px solid #d0d5dd!important;
+    font-family:Cairo,system-ui,sans-serif!important;
+    font-weight:900!important;
+    box-shadow:0 10px 24px rgba(16,24,40,.08)!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:7px!important;
+    cursor:pointer!important;
+  }
+
+  /* بوابة التحميل الجديدة */
+  #splash{
+    background:
+      radial-gradient(circle at 50% 35%,rgba(246,182,74,.20),transparent 27%),
+      radial-gradient(circle at 82% 75%,rgba(15,138,85,.42),transparent 36%),
+      linear-gradient(145deg,#050914 0%,#0b1220 52%,#063b2b 100%)!important;
+    overflow:hidden!important;
+  }
+  #splash:before{
+    content:"";position:absolute;inset:-20%;
+    background:linear-gradient(120deg,transparent 36%,rgba(255,255,255,.08),rgba(246,182,74,.20),transparent 63%);
+    animation:linkoPremiumSweep 2.4s ease-in-out infinite;
+    transform:translateX(55%) rotate(12deg);
+  }
+  #splash:after{
+    content:"";position:absolute;inset:auto -12% -16% -12%;height:42%;
+    background:radial-gradient(ellipse at center,rgba(15,138,85,.45),transparent 68%);
+    filter:blur(10px);
+  }
+  #splash .splash-card{z-index:2;transform-style:preserve-3d;perspective:1000px;width:min(94vw,520px)}
+  #splash .logo-stage{
+    width:156px!important;height:156px!important;
+    border-radius:42px!important;
+    transform-style:preserve-3d!important;
+    animation:linkoLogoBreakOut 1.45s cubic-bezier(.17,.84,.22,1) both!important;
+    filter:drop-shadow(0 30px 60px rgba(0,0,0,.45)) drop-shadow(0 0 28px rgba(246,182,74,.28))!important;
+  }
+  #splash .logo-stage:before{
+    content:"";position:absolute;inset:-18px;border-radius:52px;
+    background:radial-gradient(circle,rgba(246,182,74,.34),transparent 64%);
+    filter:blur(11px);z-index:-1;animation:linkoLogoPulse 1.8s ease-in-out infinite;
+  }
+  #splash .logo-stage img{
+    border-radius:38px!important;
+    box-shadow:0 26px 45px rgba(0,0,0,.38), inset 0 0 0 1px rgba(246,182,74,.25)!important;
+    transform:translateZ(42px)!important;
+  }
+  #splash h1{
+    margin-top:20px!important;
+    font-size:clamp(42px,10vw,76px)!important;
+    line-height:1.08!important;
+    font-weight:900!important;
+    letter-spacing:-.04em!important;
+    color:transparent!important;
+    background:linear-gradient(92deg,#fff 0%,#fff 24%,#F6B64A 42%,#fff 58%,#F6B64A 76%,#fff 100%)!important;
+    background-size:250% 100%!important;
+    -webkit-background-clip:text!important;background-clip:text!important;
+    text-shadow:0 10px 34px rgba(246,182,74,.18)!important;
+    animation:linkoTitleGoldLight 2.6s ease-in-out infinite, linkoTitleIn .75s ease .25s both!important;
+    white-space:normal!important;
+  }
+  #splash p{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;
+    margin-top:13px!important;padding:8px 16px!important;border-radius:999px!important;
+    color:#fff!important;background:rgba(255,255,255,.08)!important;border:1px solid rgba(246,182,74,.25)!important;
+    backdrop-filter:blur(10px)!important;font-size:18px!important;font-weight:900!important;
+    box-shadow:0 14px 32px rgba(0,0,0,.18)!important;
+  }
+  #splash p:after{content:"";width:13px;height:13px;border-radius:50%;background:#F6B64A;box-shadow:0 0 18px rgba(246,182,74,.9);animation:linkoDotPulse .9s ease-in-out infinite}
+  @keyframes linkoPremiumSweep{0%{transform:translateX(62%) rotate(12deg);opacity:.2}45%{opacity:.9}100%{transform:translateX(-62%) rotate(12deg);opacity:.15}}
+  @keyframes linkoLogoBreakOut{0%{opacity:0;transform:perspective(900px) rotateX(72deg) translateY(55px) scale(.74)}52%{opacity:1;transform:perspective(900px) rotateX(-13deg) translateY(-12px) scale(1.10)}100%{opacity:1;transform:perspective(900px) rotateX(0) translateY(0) scale(1)}}
+  @keyframes linkoLogoPulse{0%,100%{opacity:.55;transform:scale(.96)}50%{opacity:1;transform:scale(1.08)}}
+  @keyframes linkoTitleGoldLight{0%{background-position:120% 0}55%{background-position:-60% 0}100%{background-position:-120% 0}}
+  @keyframes linkoTitleIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+  @keyframes linkoDotPulse{0%,100%{transform:scale(.85);opacity:.75}50%{transform:scale(1.22);opacity:1}}
+</style>
+<script id="linkoDevGateAndSplashScript">
+(function(){
+  function activePageId(){return document.querySelector('.app-page.active')?.id || 'authPage'}
+  function syncAdminEntry(){document.body.classList.toggle('linko-auth-visible', activePageId()==='authPage')}
+  const oldGo=window.go;
+  window.go=function(id){ if(typeof oldGo==='function') oldGo(id); setTimeout(syncAdminEntry,40); };
+  function injectAdminBackButton(){
+    const frame=document.getElementById('linkoAdminFrame');
+    if(!frame) return;
+    try{
+      const doc=frame.contentDocument || frame.contentWindow.document;
+      if(!doc || doc.getElementById('linkoAdminLoginBack')) return;
+      const loginCard=doc.querySelector('.login-card');
+      if(!loginCard) return;
+      const btn=doc.createElement('button');
+      btn.id='linkoAdminLoginBack';
+      btn.type='button';
+      btn.className='linko-admin-login-back';
+      btn.innerHTML='🏠 رجوع إلى صفحة الأعضاء';
+      btn.onclick=function(){ window.parent.linkoCloseAdmin(); };
+      loginCard.appendChild(btn);
+      const style=doc.createElement('style');
+      style.textContent='.linko-admin-login-back{width:100%;min-height:46px;margin-top:10px;border-radius:16px;background:#fff;color:#111827;border:1px solid #d0d5dd;font-family:Cairo,system-ui,sans-serif;font-weight:900;box-shadow:0 10px 24px rgba(16,24,40,.08);display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer} body.theme-dark .linko-admin-login-back{background:#0f172a;color:#fff;border-color:#263244}';
+      doc.head.appendChild(style);
+    }catch(e){}
+  }
+  const oldOpen=window.linkoOpenAdmin;
+  window.linkoOpenAdmin=function(){ if(typeof oldOpen==='function') oldOpen(); setTimeout(injectAdminBackButton,150); setTimeout(injectAdminBackButton,700); };
+  window.addEventListener('load',()=>{syncAdminEntry();setTimeout(syncAdminEntry,500);setInterval(()=>{syncAdminEntry();injectAdminBackButton();},1000)});
+  document.addEventListener('DOMContentLoaded',syncAdminEntry);
+})();
+</script>
+<!-- ===== /LINKO PATCH ===== -->
 </body>
 </html>
 <!-- ===== LINKO SAFE PATCH: home delivery, assistant stability, instant cart feedback, clearer chat ===== -->
