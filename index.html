@@ -1775,5 +1775,200 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   });
 </script>
 
+<!-- LINKO FIREBASE PRODUCTS - ADMIN PRODUCTION PHASE 2 -->
+<script type="module" id="linkoFirebaseProductsAdminPhase2">
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+  const PRODUCT_COLLECTION = 'linko_market_products';
+  const PRODUCT_LOCAL_KEY = 'linko_market_products';
+  const ADMIN_STATE_KEY = 'linko_admin_state';
+  let linkoProductsReady = false;
+  let linkoProductsLoading = false;
+  let linkoProductsSaving = false;
+
+  const showToast = (msg) => { try { window.toast(msg); } catch(e) { console.log(msg); } };
+  const nowIQ = () => new Date().toLocaleString('ar-IQ');
+  const safeJSON = (v) => JSON.parse(JSON.stringify(v || {}));
+  const readLocalProducts = () => {
+    try { return JSON.parse(localStorage.getItem(PRODUCT_LOCAL_KEY) || '[]') || []; }
+    catch(e){ return []; }
+  };
+  const writeLocalProducts = (rows) => {
+    const products = Array.isArray(rows) ? rows : [];
+    try { localStorage.setItem(PRODUCT_LOCAL_KEY, JSON.stringify(products)); } catch(e) {}
+    try {
+      window.state = window.state || {};
+      window.state.products = products;
+      localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state));
+    } catch(e) {}
+  };
+  const getBranch = (value) => {
+    const branches = window.state?.branches || [];
+    return branches.find(b => String(b.id) === String(value) || String(b.name) === String(value) || String(b.branchName) === String(value)) || null;
+  };
+  const cleanProduct = (p, i = 0) => {
+    const b = getBranch(p.branchId || p.branchName || p.branch || '');
+    return {
+      id: String(p.id || Date.now() + i),
+      name: String(p.name || '').trim(),
+      branchId: b ? String(b.id) : String(p.branchId || ''),
+      branchName: b ? String(b.name) : String(p.branchName || p.branch || ''),
+      group: String(p.group || p.cat || p.category || '').trim(),
+      img: String(p.img || p.image || p.photo || p.picture || ''),
+      status: (p.status === 'unavailable' || p.status === 'غير متوفر' || p.status === false) ? 'unavailable' : 'available',
+      order: Number.isFinite(Number(p.order)) ? Number(p.order) : (i + 1),
+      updatedAtText: p.updatedAtText || nowIQ()
+    };
+  };
+  const sortProducts = (rows) => [...(rows || [])].map(cleanProduct).sort((a,b) => (Number(a.order)||0) - (Number(b.order)||0));
+  const saveProductDoc = async (product) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    const data = {...cleanProduct(product), updatedAtText: nowIQ(), updatedAt: serverTimestamp()};
+    await setDoc(doc(db, PRODUCT_COLLECTION, String(data.id)), safeJSON(data), { merge: false });
+  };
+  const deleteProductDoc = async (id) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    await deleteDoc(doc(db, PRODUCT_COLLECTION, String(id)));
+  };
+  const loadProductsFromFirestore = async () => {
+    if(linkoProductsLoading) return;
+    const db = window.linkoFirestoreDB;
+    const auth = window.linkoFirebaseAuth;
+    if(!db || !auth?.currentUser) return;
+    linkoProductsLoading = true;
+    try{
+      const snap = await getDocs(collection(db, PRODUCT_COLLECTION));
+      const cloudProducts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if(cloudProducts.length){
+        writeLocalProducts(sortProducts(cloudProducts));
+      }else{
+        const localProducts = sortProducts(window.state?.products?.length ? window.state.products : readLocalProducts());
+        if(localProducts.length){
+          await Promise.all(localProducts.map(p => saveProductDoc(p)));
+          writeLocalProducts(localProducts);
+        }
+      }
+      linkoProductsReady = true;
+      try { window.render(); } catch(e) {}
+      showToast('تم تحميل المنتجات من Firebase');
+    }catch(error){
+      console.error('LINKO products Firestore load error:', error);
+      showToast('تعذر تحميل المنتجات من Firebase');
+    }finally{
+      linkoProductsLoading = false;
+    }
+  };
+
+  const originalProductsView = window.products;
+  window.products = function(){
+    if(!linkoProductsReady && window.linkoFirebaseAuth?.currentUser){
+      setTimeout(loadProductsFromFirestore, 0);
+    }
+    return originalProductsView ? originalProductsView() : '<div class="panel"><h2>إدارة المنتجات</h2></div>';
+  };
+
+  window.saveProduct = async function(id){
+    if(linkoProductsSaving) return;
+    const name = (document.getElementById('pName')?.value || '').trim();
+    const branchValue = document.getElementById('pBranch')?.value || '';
+    const branch = getBranch(branchValue);
+    const data = cleanProduct({
+      id: id ? String(id) : String(Date.now()),
+      name,
+      branchId: branch ? branch.id : branchValue,
+      branchName: branch ? branch.name : '',
+      group: document.getElementById('pGroup')?.value || '',
+      img: document.getElementById('pImg')?.value || '',
+      status: document.getElementById('pStatus')?.value || 'available',
+      order: document.getElementById('pOrder')?.value || 1,
+      updatedAtText: nowIQ()
+    });
+    if(!data.name){ showToast('اكتب اسم المنتج'); return; }
+    linkoProductsSaving = true;
+    try{
+      const current = sortProducts(window.state?.products?.length ? window.state.products : readLocalProducts());
+      let next;
+      if(id){
+        let found = false;
+        next = current.map(p => {
+          if(String(p.id) === String(id)){ found = true; return data; }
+          return p;
+        });
+        if(!found) next.unshift(data);
+      }else{
+        next = [data, ...current.filter(p => String(p.id) !== String(data.id))];
+      }
+      writeLocalProducts(sortProducts(next));
+      await saveProductDoc(data);
+      try {
+        window.state.logs = window.state.logs || [];
+        window.state.logs.unshift({id: Date.now(), type: id ? 'تعديل منتج' : 'إضافة منتج', by: 'مدير النظام', time: nowIQ(), details: 'تم حفظ ' + data.name});
+        localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state));
+      } catch(e) {}
+      if(typeof window.closeModal === 'function') window.closeModal();
+      showToast('تم حفظ المنتج في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO product save error:', error);
+      showToast('تعذر حفظ المنتج في Firebase');
+    }finally{
+      linkoProductsSaving = false;
+    }
+  };
+
+  window.toggleProduct = async function(id){
+    const current = sortProducts(window.state?.products?.length ? window.state.products : readLocalProducts());
+    const product = current.find(p => String(p.id) === String(id));
+    if(!product){ showToast('المنتج غير موجود'); return; }
+    product.status = product.status === 'available' ? 'unavailable' : 'available';
+    product.updatedAtText = nowIQ();
+    try{
+      writeLocalProducts(current);
+      await saveProductDoc(product);
+      showToast('تم تغيير حالة المنتج');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO product toggle error:', error);
+      showToast('تعذر تحديث حالة المنتج في Firebase');
+    }
+  };
+
+  window.deleteProduct = async function(id){
+    if(!confirm('تأكيد حذف المنتج؟')) return;
+    const current = sortProducts(window.state?.products?.length ? window.state.products : readLocalProducts());
+    const product = current.find(p => String(p.id) === String(id));
+    const next = current.filter(p => String(p.id) !== String(id));
+    try{
+      writeLocalProducts(next);
+      await deleteProductDoc(id);
+      try {
+        window.state.logs = window.state.logs || [];
+        window.state.logs.unshift({id: Date.now(), type: 'حذف منتج', by: 'مدير النظام', time: nowIQ(), details: 'تم حذف ' + (product?.name || '')});
+        localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state));
+      } catch(e) {}
+      showToast('تم حذف المنتج من Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO product delete error:', error);
+      showToast('تعذر حذف المنتج من Firebase');
+    }
+  };
+
+  const waitForAuth = () => {
+    if(window.linkoFirebaseAuth){
+      onAuthStateChanged(window.linkoFirebaseAuth, (user) => {
+        if(user) setTimeout(loadProductsFromFirestore, 500);
+        else linkoProductsReady = false;
+      });
+    }else{
+      setTimeout(waitForAuth, 200);
+    }
+  };
+  waitForAuth();
+</script>
+
 </body>
 </html>
