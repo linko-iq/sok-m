@@ -3298,5 +3298,178 @@ window.sendNotification = async function(){
 console.log('LINKO conservative admin patch loaded: data requests + notifications only');
 </script>
 
+
+
+<!-- LINKO FINAL STORAGE PATCH: products + branches images, no Base64/no LocalStorage images -->
+<script type="module" id="linkoFinalStorageProductsBranchesAdmin">
+  import { getApp, getApps, initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-storage.js";
+  import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBI_G4gS3WHQI-VF2JBUHPTACGFC3_s8y4",
+    authDomain: "medina-bazaar-e5d67.firebaseapp.com",
+    projectId: "medina-bazaar-e5d67",
+    storageBucket: "medina-bazaar-e5d67.firebasestorage.app",
+    messagingSenderId: "584827394228",
+    appId: "1:584827394228:web:2447944b4324a17b469fe1"
+  };
+
+  const app = window.linkoFirebaseApp || (getApps().length ? getApp() : initializeApp(firebaseConfig));
+  const db = window.linkoFirestoreDB || getFirestore(app);
+  const storage = getStorage(app);
+  window.linkoFirebaseStorage = storage;
+
+  const PRODUCT_COLLECTION = 'linko_market_products';
+  const BRANCH_COLLECTION = 'linko_market_branches';
+  const ADMIN_STATE_KEY = 'linko_admin_state';
+
+  const $ = (id) => document.getElementById(id);
+  const toast = (msg) => { try { window.toast(msg); } catch(e){ console.log(msg); } };
+  const safe = (v) => JSON.parse(JSON.stringify(v || {}));
+  const nowIQ = () => new Date().toLocaleString('ar-IQ');
+  const extOf = (file) => {
+    const fromName = (file?.name || '').split('.').pop();
+    if(fromName && fromName.length <= 5) return fromName.toLowerCase();
+    const t = String(file?.type || '').split('/').pop();
+    return t || 'jpg';
+  };
+  const selectedFiles = { product: null, branch: null };
+
+  function currentState(){ window.state = window.state || {}; window.state.products = window.state.products || []; window.state.branches = window.state.branches || []; return window.state; }
+  function saveAdminLocal(){ try { localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state || {})); } catch(e){} }
+  function branchFromValue(value){
+    const s=currentState();
+    return (s.branches||[]).find(b => String(b.id)===String(value) || String(b.name)===String(value) || String(b.branchName)===String(value)) || null;
+  }
+  async function uploadFinalImage(kind, id, file){
+    if(!file) return '';
+    if(!file.type || !file.type.startsWith('image/')) throw new Error('الملف المختار ليس صورة');
+    const path = `medina-bazaar/${kind}/${String(id)}/${Date.now()}.${extOf(file)}`;
+    const snap = await uploadBytes(ref(storage, path), file, { contentType: file.type || 'image/jpeg' });
+    return await getDownloadURL(snap.ref);
+  }
+  function setPreview(boxId, src, fallback){
+    const box=$(boxId);
+    if(!box) return;
+    box.innerHTML = src ? `<img src="${src}" alt="${fallback||'صورة'}">` : `<span>${fallback||'صورة'}</span>`;
+  }
+  function normalizeProduct(data, id){
+    const b = branchFromValue(data.branch || data.branchId || data.branchName || '');
+    return {
+      id: String(id || data.id || Date.now()),
+      name: String(data.name || '').trim(),
+      branch: b ? String(b.name || '') : String(data.branch || data.branchName || 'كل الفروع'),
+      branchName: b ? String(b.name || '') : String(data.branchName || data.branch || 'كل الفروع'),
+      branchId: b ? String(b.id || '') : String(data.branchId || ''),
+      group: String(data.group || '').trim(),
+      status: data.status === 'unavailable' ? 'unavailable' : 'available',
+      order: Number(data.order) || 1,
+      img: String(data.img || data.imageUrl || ''),
+      imageUrl: String(data.imageUrl || data.img || ''),
+      updatedAtText: nowIQ()
+    };
+  }
+  function normalizeBranch(data, id){
+    return {
+      id: String(id || data.id || Date.now()),
+      name: String(data.name || '').trim(),
+      area: String(data.area || 'قسم السوق'),
+      icon: String(data.icon || 'storefront'),
+      status: (data.status === 'stopped' || data.status === 'hidden') ? data.status : 'active',
+      order: Number(data.order) || 1,
+      img: String(data.img || data.imageUrl || ''),
+      imageUrl: String(data.imageUrl || data.img || ''),
+      updatedAtText: nowIQ()
+    };
+  }
+
+  window.handleProductImageUpload = function(ev){
+    const file = ev?.target?.files?.[0];
+    if(!file) return;
+    if(!file.type.startsWith('image/')){ toast('اختر صورة فقط'); return; }
+    selectedFiles.product = file;
+    const url = URL.createObjectURL(file);
+    setPreview('pImgPreviewBox', url, 'صورة المنتج');
+    const input=$('pImg'); if(input) input.value='';
+    toast('تم اختيار الصورة، سيتم رفعها عند حفظ المنتج');
+  };
+  window.handleCompactImageUpload = function(ev,inputId,boxId,label){
+    const file = ev?.target?.files?.[0];
+    if(!file) return;
+    if(!file.type.startsWith('image/')){ toast('اختر صورة فقط'); return; }
+    if(inputId === 'bImg') selectedFiles.branch = file;
+    else window.__linkoOtherSelectedImages = window.__linkoOtherSelectedImages || {}, window.__linkoOtherSelectedImages[inputId]=file;
+    const url = URL.createObjectURL(file);
+    setPreview(boxId, url, label || 'صورة');
+    const input=$(inputId); if(input) input.value='';
+    toast('تم اختيار الصورة، سيتم رفعها عند الحفظ');
+  };
+
+  window.saveProduct = async function(id){
+    try{
+      const productId = String(id && id !== 0 ? id : Date.now());
+      const current = (currentState().products||[]).find(x => String(x.id) === String(productId)) || {};
+      const base = normalizeProduct({
+        id: productId,
+        name: $('pName')?.value || '',
+        branch: $('pBranch')?.value || 'كل الفروع',
+        group: $('pGroup')?.value || '',
+        status: $('pStatus')?.value || 'available',
+        order: $('pOrder')?.value || 1,
+        img: current.img || current.imageUrl || $('pImg')?.value || ''
+      }, productId);
+      if(!base.name){ toast('اكتب اسم المنتج'); return; }
+      const btn = document.querySelector('[onclick^="saveProduct"]');
+      if(btn){ btn.disabled=true; btn.textContent='جاري الحفظ...'; }
+      if(selectedFiles.product){
+        const url = await uploadFinalImage('products', productId, selectedFiles.product);
+        base.img = url; base.imageUrl = url;
+        selectedFiles.product = null;
+      }
+      await setDoc(doc(db, PRODUCT_COLLECTION, productId), safe({...base, updatedAt: serverTimestamp()}), {merge:true});
+      const s=currentState();
+      s.products = [base, ...(s.products||[]).filter(p => String(p.id)!==String(productId))].sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+      try{ localStorage.setItem(PRODUCT_COLLECTION, JSON.stringify(s.products)); }catch(e){}
+      saveAdminLocal();
+      try{ window.log(id?'تعديل منتج':'إضافة منتج', (id?'تم تعديل ':'تم إضافة ')+base.name); }catch(e){}
+      try{ window.closeModal(); }catch(e){}
+      try{ window.render(); }catch(e){}
+      toast('تم حفظ المنتج ورفع الصورة بنجاح');
+    }catch(err){ console.error(err); toast('فشل حفظ المنتج: '+(err.message||err)); }
+  };
+
+  window.saveBranch = async function(id){
+    try{
+      const branchId = String(id && id !== 0 ? id : Date.now());
+      const current = (currentState().branches||[]).find(x => String(x.id) === String(branchId)) || {};
+      const base = normalizeBranch({
+        id: branchId,
+        name: $('bName')?.value || '',
+        order: $('bOrder')?.value || 1,
+        status: $('bStatus')?.value || 'active',
+        img: current.img || current.imageUrl || $('bImg')?.value || ''
+      }, branchId);
+      if(!base.name){ toast('اكتب اسم الفرع'); return; }
+      const btn = document.querySelector('[onclick^="saveBranch"]');
+      if(btn){ btn.disabled=true; btn.textContent='جاري الحفظ...'; }
+      if(selectedFiles.branch){
+        const url = await uploadFinalImage('branches', branchId, selectedFiles.branch);
+        base.img = url; base.imageUrl = url;
+        selectedFiles.branch = null;
+      }
+      await setDoc(doc(db, BRANCH_COLLECTION, branchId), safe({...base, updatedAt: serverTimestamp()}), {merge:true});
+      const s=currentState();
+      s.branches = [base, ...(s.branches||[]).filter(b => String(b.id)!==String(branchId))].sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+      try{ localStorage.setItem(BRANCH_COLLECTION, JSON.stringify(s.branches)); }catch(e){}
+      saveAdminLocal();
+      try{ window.log(id?'تعديل فرع':'إضافة فرع', (id?'تم تعديل ':'تم إضافة ')+base.name); }catch(e){}
+      try{ window.closeModal(); }catch(e){}
+      try{ window.render(); }catch(e){}
+      toast('تم حفظ الفرع ورفع الصورة بنجاح');
+    }catch(err){ console.error(err); toast('فشل حفظ الفرع: '+(err.message||err)); }
+  };
+</script>
+
 </body>
 </html>
