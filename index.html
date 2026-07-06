@@ -2568,5 +2568,322 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   waitForAuth();
 </script>
 
+
+
+<!-- LINKO FIREBASE REQUESTS - ADMIN PRODUCTION PHASE 6 -->
+<script type="module" id="linkoFirebaseRequestsAdminPhase6">
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+  const SIGNUP_COLLECTION = 'linko_market_requests';
+  const DATA_REQ_COLLECTION = 'linko_market_data_requests';
+  const MEMBERS_COLLECTION = 'linko_market_members';
+  const SIGNUP_LOCAL_KEY = 'linko_market_requests';
+  const DATA_REQ_LOCAL_KEY = 'linko_market_data_requests';
+  const MEMBERS_LOCAL_KEY = 'linko_market_members';
+  const ADMIN_STATE_KEY = 'linko_admin_state';
+  let linkoRequestsReady = false;
+  let linkoRequestsLoading = false;
+  let linkoRequestsSaving = false;
+
+  const showToast = (msg) => { try { window.toast(msg); } catch(e) { console.log(msg); } };
+  const nowIQ = () => new Date().toLocaleString('ar-IQ');
+  const safeJSON = (v) => JSON.parse(JSON.stringify(v || {}));
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const q = (v) => `'${String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`;
+  const parseDate = (v) => { const d = new Date(v); return isNaN(d) ? new Date() : d; };
+  const reqStatus = (s) => ({approved:'approved','مقبول':'approved',rejected:'rejected','مرفوض':'rejected',pending:'pending','بانتظار':'pending','قيد المراجعة':'pending'}[s] || 'pending');
+  const statusText = (s) => ({approved:'مقبول',rejected:'مرفوض',pending:'بانتظار'}[reqStatus(s)] || 'بانتظار');
+  const statusClass = (s) => ({approved:'ok',rejected:'bad',pending:'wait'}[reqStatus(s)] || 'wait');
+  const writeAdminState = () => { try { localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state || {})); } catch(e){} };
+  const readLocal = (key) => { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch(e){ return []; } };
+  const writeLocal = (key, rows) => { try { localStorage.setItem(key, JSON.stringify(rows || [])); } catch(e){} };
+
+  const cleanSignup = (r = {}, i = 0) => {
+    const id = String(r.id || ('signup_' + Date.now() + '_' + i));
+    const fullName = String(r.fullName || r.name || '').trim();
+    const username = String(r.username || r.code || ('member_' + id.replace(/[^0-9a-zA-Z_-]/g,''))).trim();
+    const img = String(r.img || r.avatar || '');
+    const createdAt = String(r.createdAt || r.date || nowIQ());
+    return {
+      id,
+      fullName,
+      name: fullName,
+      username,
+      code: username,
+      phone: String(r.phone || '').trim(),
+      address: String(r.address || r.area || '').trim(),
+      area: String(r.area || r.address || '').trim(),
+      img,
+      avatar: img,
+      password: String(r.password || '').trim(),
+      createdAt,
+      date: createdAt,
+      status: reqStatus(r.status)
+    };
+  };
+
+  const cleanDataRequest = (r = {}, i = 0) => {
+    const id = String(r.id || ('data_request_' + Date.now() + '_' + i));
+    const createdAt = String(r.createdAt || r.date || r.time || nowIQ());
+    return {
+      id,
+      memberId: String(r.memberId || ''),
+      memberName: String(r.memberName || r.name || '').trim(),
+      memberUsername: String(r.memberUsername || r.username || '').trim(),
+      phone: String(r.phone || r.memberPhone || '').trim(),
+      type: String(r.type || r.title || 'طلب تعديل بيانات').trim(),
+      currentData: String(r.currentData || r.current || 'حسب بيانات العضو الحالية').trim(),
+      newData: String(r.newData || r.text || r.details || r.newValue || '').trim(),
+      createdAt,
+      date: createdAt,
+      status: reqStatus(r.status),
+      resolvedAt: r.resolvedAt || ''
+    };
+  };
+
+  const cleanMember = (m = {}, i = 0) => {
+    const id = String(m.id || ('member_' + Date.now() + '_' + i));
+    const name = String(m.name || m.fullName || '').trim();
+    const username = String(m.username || m.code || '').trim();
+    const img = String(m.img || m.avatar || '');
+    return {
+      ...m,
+      id,
+      name,
+      fullName: name,
+      username,
+      code: username,
+      phone: String(m.phone || '').trim(),
+      address: String(m.address || m.area || '').trim(),
+      area: String(m.area || m.address || '').trim(),
+      balance: Number(m.balance || 0),
+      status: m.status || 'active',
+      createdAt: m.createdAt || nowIQ(),
+      img,
+      avatar: img,
+      password: String(m.password || '')
+    };
+  };
+
+  const sortByDateDesc = (rows, cleaner) => [...(rows || [])].map(cleaner).sort((a,b) => parseDate(b.createdAt || b.date) - parseDate(a.createdAt || a.date));
+
+  const saveDoc = async (collectionName, item) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    await setDoc(doc(db, collectionName, String(item.id)), safeJSON({...item, updatedAtText: nowIQ(), updatedAt: serverTimestamp()}), { merge: false });
+  };
+
+  const deleteDocById = async (collectionName, id) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    await deleteDoc(doc(db, collectionName, String(id)));
+  };
+
+  const logAction = (type, details) => {
+    try{
+      window.state.logs = window.state.logs || [];
+      window.state.logs.unshift({id: Date.now(), type, by: 'مدير النظام', time: nowIQ(), details});
+      writeAdminState();
+    }catch(e){}
+  };
+
+  const writeAllLocal = (signups, dataRequests, members) => {
+    window.state = window.state || {};
+    if(signups) { window.state.requests = signups; writeLocal(SIGNUP_LOCAL_KEY, signups); }
+    if(dataRequests) { window.state.dataRequests = dataRequests; writeLocal(DATA_REQ_LOCAL_KEY, dataRequests); }
+    if(members) { window.state.members = members; writeLocal(MEMBERS_LOCAL_KEY, members); }
+    writeAdminState();
+  };
+
+  const loadRequestsFromFirestore = async () => {
+    if(linkoRequestsLoading) return;
+    const db = window.linkoFirestoreDB;
+    const auth = window.linkoFirebaseAuth;
+    if(!db || !auth?.currentUser) return;
+    linkoRequestsLoading = true;
+    try{
+      const [signupSnap, dataReqSnap] = await Promise.all([
+        getDocs(collection(db, SIGNUP_COLLECTION)),
+        getDocs(collection(db, DATA_REQ_COLLECTION))
+      ]);
+      let signups = signupSnap.docs.map(d => ({id:d.id, ...d.data()}));
+      let dataRequests = dataReqSnap.docs.map(d => ({id:d.id, ...d.data()}));
+      if(!signups.length){
+        signups = sortByDateDesc(window.state?.requests?.length ? window.state.requests : readLocal(SIGNUP_LOCAL_KEY), cleanSignup);
+        if(signups.length) await Promise.all(signups.map(x => saveDoc(SIGNUP_COLLECTION, x)));
+      }else signups = sortByDateDesc(signups, cleanSignup);
+      if(!dataRequests.length){
+        dataRequests = sortByDateDesc(window.state?.dataRequests?.length ? window.state.dataRequests : readLocal(DATA_REQ_LOCAL_KEY), cleanDataRequest);
+        if(dataRequests.length) await Promise.all(dataRequests.map(x => saveDoc(DATA_REQ_COLLECTION, x)));
+      }else dataRequests = sortByDateDesc(dataRequests, cleanDataRequest);
+      writeAllLocal(signups, dataRequests);
+      linkoRequestsReady = true;
+      try { window.render(); } catch(e) {}
+      showToast('تم تحميل طلبات الاشتراك وتعديل البيانات من Firebase');
+    }catch(error){
+      console.error('LINKO requests Firestore load error:', error);
+      showToast('تعذر تحميل الطلبات من Firebase');
+    }finally{ linkoRequestsLoading = false; }
+  };
+
+  window.subscriptions = function(){
+    if(!linkoRequestsReady && window.linkoFirebaseAuth?.currentUser) setTimeout(loadRequestsFromFirestore,0);
+    const search = (document.getElementById('reqSearch')?.value || '').trim();
+    const list = sortByDateDesc(window.state?.requests || [], cleanSignup).filter(r => !search || [r.fullName,r.name,r.username,r.phone,r.address,r.status].join(' ').includes(search));
+    return `<div class="panel"><div class="panel-head"><div><h2>طلبات الاشتراك</h2><p>مرتبطة مباشرة مع Firebase. القبول ينشئ العضو داخل قسم الأعضاء.</p></div><button class="btn secondary mini" onclick="linkoReloadRequests()">تحديث Firebase</button></div><div class="tools"><input class="input" id="reqSearch" oninput="linkoStableSearch(this)" value="${esc(search)}" placeholder="بحث بالاسم أو اسم المستخدم أو الهاتف"><button class="btn secondary" onclick="render()">بحث</button><button class="btn danger" onclick="clearRejected()">حذف المرفوض</button></div><div class="cards">${list.length?list.map(r=>`<div class="request-card"><h3>${esc(r.fullName || r.name)} <span class="status ${statusClass(r.status)}">${statusText(r.status)}</span></h3><p class="muted">اسم المستخدم: ${esc(r.username||'-')} • الهاتف: ${esc(r.phone||'-')}<br>العنوان: ${esc(r.address||'-')} • ${esc(r.createdAt||r.date||'')}</p><div class="actions-row">${reqStatus(r.status)==='pending'?`<button class="btn mini" onclick="approveReq(${q(r.id)})">قبول</button><button class="btn warn mini" onclick="rejectReq(${q(r.id)})">رفض</button>`:''}<button class="btn danger mini" onclick="deleteReq(${q(r.id)})">حذف</button></div></div>`).join(''):'<div class="empty">لا توجد طلبات اشتراك</div>'}</div></div>`;
+  };
+
+  window.approveReq = async function(id){
+    if(linkoRequestsSaving) return;
+    const signups = sortByDateDesc(window.state?.requests || [], cleanSignup);
+    const r = signups.find(x => String(x.id) === String(id));
+    if(!r){ showToast('طلب الاشتراك غير موجود'); return; }
+    const members = (window.state?.members || readLocal(MEMBERS_LOCAL_KEY)).map(cleanMember);
+    const member = cleanMember({
+      id: String(Date.now()),
+      name: r.fullName || r.name,
+      fullName: r.fullName || r.name,
+      username: r.username,
+      code: r.username,
+      phone: r.phone,
+      address: r.address,
+      area: r.address,
+      img: r.img || r.avatar || '',
+      avatar: r.img || r.avatar || '',
+      balance: 0,
+      status: 'active',
+      createdAt: nowIQ(),
+      password: r.password || ''
+    });
+    const nextSignups = signups.filter(x => String(x.id) !== String(id));
+    linkoRequestsSaving = true;
+    try{
+      await saveDoc(MEMBERS_COLLECTION, member);
+      await deleteDocById(SIGNUP_COLLECTION, id);
+      writeAllLocal(nextSignups, null, [member, ...members]);
+      logAction('قبول اشتراك', 'تم قبول طلب ' + (member.name || ''));
+      showToast('تم قبول الطلب وإنشاء العضو في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO approve signup error:', error);
+      showToast('تعذر قبول الطلب في Firebase');
+    }finally{ linkoRequestsSaving = false; }
+  };
+
+  window.rejectReq = async function(id){
+    const signups = sortByDateDesc(window.state?.requests || [], cleanSignup);
+    const r = signups.find(x => String(x.id) === String(id));
+    if(!r) return;
+    r.status = 'rejected';
+    try{
+      await saveDoc(SIGNUP_COLLECTION, r);
+      writeAllLocal(signups);
+      logAction('رفض طلب اشتراك', 'تم رفض طلب ' + (r.fullName || r.name || ''));
+      showToast('تم رفض الطلب وحفظه في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){ console.error(error); showToast('تعذر رفض الطلب في Firebase'); }
+  };
+
+  window.deleteReq = async function(id){
+    if(!confirm('تأكيد حذف طلب الاشتراك؟')) return;
+    const signups = sortByDateDesc(window.state?.requests || [], cleanSignup).filter(x => String(x.id) !== String(id));
+    try{
+      await deleteDocById(SIGNUP_COLLECTION, id);
+      writeAllLocal(signups);
+      logAction('حذف طلب اشتراك', 'تم حذف طلب اشتراك');
+      showToast('تم حذف الطلب من Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){ console.error(error); showToast('تعذر حذف الطلب من Firebase'); }
+  };
+
+  window.clearRejected = async function(){
+    const all = sortByDateDesc(window.state?.requests || [], cleanSignup);
+    const rejected = all.filter(x => reqStatus(x.status) === 'rejected');
+    if(!rejected.length){ showToast('لا توجد طلبات مرفوضة'); return; }
+    if(!confirm('تأكيد حذف كل الطلبات المرفوضة؟')) return;
+    try{
+      await Promise.all(rejected.map(x => deleteDocById(SIGNUP_COLLECTION, x.id)));
+      writeAllLocal(all.filter(x => reqStatus(x.status) !== 'rejected'));
+      logAction('تنظيف طلبات الاشتراك', 'تم حذف الطلبات المرفوضة');
+      showToast('تم حذف الطلبات المرفوضة من Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){ console.error(error); showToast('تعذر حذف الطلبات المرفوضة'); }
+  };
+
+  window.dataRequests = function(){
+    if(!linkoRequestsReady && window.linkoFirebaseAuth?.currentUser) setTimeout(loadRequestsFromFirestore,0);
+    const search = (document.getElementById('dataReqSearch')?.value || '').trim();
+    const list = sortByDateDesc(window.state?.dataRequests || [], cleanDataRequest).filter(r => !search || [r.memberName,r.memberUsername,r.phone,r.type,r.newData,r.status].join(' ').includes(search));
+    const pending = list.filter(x => reqStatus(x.status)==='pending').length;
+    return `<div class="panel"><div class="panel-head"><div><h2>طلبات تعديل البيانات</h2><p>مرتبطة مباشرة مع Firebase. لا يتم تعديل بيانات العضو إلا بعد موافقة الإدارة.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="status ${pending?'bad':'ok'}">${pending} بانتظار</span><button class="btn secondary mini" onclick="linkoReloadRequests()">تحديث Firebase</button></div></div><div class="tools"><input class="input" id="dataReqSearch" oninput="linkoStableSearch(this)" value="${esc(search)}" placeholder="بحث باسم العضو أو نوع الطلب"><button class="btn secondary" onclick="render()">بحث</button></div><div class="cards">${list.length?list.map(window.dataRequestCard).join(''):'<div class="empty">لا توجد طلبات تعديل بيانات</div>'}</div></div>`;
+  };
+
+  window.dataRequestCard = function(raw){
+    const r = cleanDataRequest(raw);
+    const can = reqStatus(r.status) === 'pending';
+    return `<div class="request-card ${can?'admin-request unread':''}"><h3>${esc(r.type)} <span class="status ${statusClass(r.status)}">${statusText(r.status)}</span></h3><p class="muted">العضو: ${esc(r.memberName||'-')} • اسم المستخدم: ${esc(r.memberUsername||'-')} • الهاتف: ${esc(r.phone||'-')}<br>البيانات الحالية: ${esc(r.currentData||'-')}<br>البيانات المطلوبة: ${esc(r.newData||'-')}<br>${esc(r.createdAt||r.date||'')}</p>${can?`<div class="actions-row"><button class="btn mini" onclick="approveDataRequest(${q(r.id)})">موافقة</button><button class="btn warn mini" onclick="rejectDataRequest(${q(r.id)})">رفض</button></div>`:''}</div>`;
+  };
+
+  const applyDataRequestToMember = (member, request) => {
+    const t = String(request.type || '');
+    const v = String(request.newData || '').trim();
+    if(!v) return member;
+    if(t.includes('الاسم')) { member.name = v; member.fullName = v; }
+    else if(t.includes('الهاتف') || t.includes('رقم')) member.phone = v;
+    else if(t.includes('العنوان') || t.includes('منطقة')) { member.address = v; member.area = v; }
+    else if(t.includes('الصورة')) { member.img = v; member.avatar = v; }
+    else if(t.includes('رمز') || t.includes('كلمة')) member.passwordChangeNote = v;
+    else member.updateNote = v;
+    return member;
+  };
+
+  window.approveDataRequest = async function(id){
+    const requests = sortByDateDesc(window.state?.dataRequests || [], cleanDataRequest);
+    const r = requests.find(x => String(x.id) === String(id));
+    if(!r) return;
+    const members = (window.state?.members || readLocal(MEMBERS_LOCAL_KEY)).map(cleanMember);
+    const member = members.find(m => String(m.id) === String(r.memberId) || m.username === r.memberUsername || m.name === r.memberName || m.fullName === r.memberName);
+    r.status = 'approved'; r.resolvedAt = nowIQ();
+    try{
+      if(member){
+        applyDataRequestToMember(member, r);
+        await saveDoc(MEMBERS_COLLECTION, member);
+      }
+      await saveDoc(DATA_REQ_COLLECTION, r);
+      writeAllLocal(null, requests, members);
+      logAction('موافقة طلب تعديل بيانات', `${r.type} - ${r.memberName}`);
+      showToast(member ? 'تمت الموافقة وتحديث بيانات العضو في Firebase' : 'تمت الموافقة، لكن لم يتم العثور على العضو');
+      try { window.render(); } catch(e) {}
+    }catch(error){ console.error(error); showToast('تعذر حفظ موافقة طلب التعديل'); }
+  };
+
+  window.rejectDataRequest = async function(id){
+    const requests = sortByDateDesc(window.state?.dataRequests || [], cleanDataRequest);
+    const r = requests.find(x => String(x.id) === String(id));
+    if(!r) return;
+    r.status = 'rejected'; r.resolvedAt = nowIQ();
+    try{
+      await saveDoc(DATA_REQ_COLLECTION, r);
+      writeAllLocal(null, requests);
+      logAction('رفض طلب تعديل بيانات', `${r.type} - ${r.memberName}`);
+      showToast('تم رفض الطلب وحفظه في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){ console.error(error); showToast('تعذر رفض طلب التعديل'); }
+  };
+
+  window.linkoReloadRequests = async function(){ await loadRequestsFromFirestore(); };
+
+  const waitForAuth = () => {
+    if(window.linkoFirebaseAuth){
+      onAuthStateChanged(window.linkoFirebaseAuth, (user) => {
+        if(user) setTimeout(loadRequestsFromFirestore, 550);
+        else linkoRequestsReady = false;
+      });
+    }else setTimeout(waitForAuth, 200);
+  };
+  waitForAuth();
+</script>
+
 </body>
 </html>
