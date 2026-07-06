@@ -2982,5 +2982,195 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   waitForAuth();
 </script>
 
+
+
+<!-- ===== LINKO PHASE 7 ADMIN FINAL: PERFORMANCE + STABILITY + CLEANUP ===== -->
+<style id="linko-admin-phase7-final-style">
+  :root{--linko-fast:.16s cubic-bezier(.2,.8,.2,1)}
+  html,body{scroll-behavior:smooth;}
+  .panel,.kpi,.product-card,.member-card,.request-card,.branch-card,.log,.admin-request{will-change:auto!important;backface-visibility:hidden;}
+  .btn,.nav button,.icon-btn,.theme-toggle{touch-action:manipulation;}
+  .section.active{animation:linkoPhase7Fade .16s ease both!important;}
+  @keyframes linkoPhase7Fade{from{opacity:.65;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .kpi:hover,.product-card:hover,.member-card:hover,.request-card:hover,.branch-card:hover,.log:hover{transform:none!important;}
+  .toast{pointer-events:none;}
+  img{content-visibility:auto;}
+  .cards,.timeline,.branch-grid,.kpis{contain:layout paint;}
+  .modal-card{overscroll-behavior:contain;}
+  body.linko-phase7-low-motion .section,
+  body.linko-phase7-low-motion .panel,
+  body.linko-phase7-low-motion .kpi,
+  body.linko-phase7-low-motion .cards>*{animation:none!important;}
+  body.linko-phase7-low-motion .motivation-track{animation-duration:52s!important;}
+  @media(max-width:980px){
+    .topbar{backdrop-filter:blur(8px)!important;}
+    .login-card,.modal,.side-menu{backdrop-filter:none!important;}
+    .panel,.kpi,.product-card,.member-card,.request-card,.branch-card,.log,.admin-request{box-shadow:0 8px 22px rgba(16,24,40,.075)!important;}
+    .section,.panel,.kpi,.cards>*{animation:none!important;}
+    .motivation-track{animation-duration:44s!important;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *,*:before,*:after{animation:none!important;transition:none!important;}
+  }
+</style>
+<script id="linko-admin-phase7-final-script">
+(function(){
+  if(window.__LINKO_ADMIN_PHASE7_FINAL__) return;
+  window.__LINKO_ADMIN_PHASE7_FINAL__ = true;
+
+  const safeArr = (v) => Array.isArray(v) ? v : [];
+  const txt = (v) => String(v ?? '').trim();
+  const now = () => new Date().toLocaleString('ar-IQ');
+  const normPhone = (v) => txt(v).replace(/[^0-9+]/g,'');
+  const stableId = () => Date.now() + Math.floor(Math.random()*9999);
+
+  function keySignup(r){ return [txt(r.name||r.fullName).toLowerCase(), normPhone(r.phone), txt(r.code||r.password)].filter(Boolean).join('|') || txt(r.id); }
+  function keyDataReq(r){ return [txt(r.memberId||r.memberUsername||r.memberName).toLowerCase(), txt(r.type), txt(r.newData||r.newValue), txt(r.createdAt||r.time)].join('|'); }
+  function keyAdminReq(r){ return [txt(r.type), txt(r.title), txt(r.details), txt(r.memberId||r.memberName), txt(r.time||r.createdAt)].join('|'); }
+
+  function dedupe(list, keyFn){
+    const seen = new Set();
+    const out = [];
+    for(const item of safeArr(list)){
+      if(!item) continue;
+      const k = keyFn(item) || txt(item.id) || JSON.stringify(item).slice(0,160);
+      if(seen.has(k)) continue;
+      seen.add(k);
+      out.push(item);
+    }
+    return out;
+  }
+
+  function normalizeStateFinal(){
+    const s = window.state || {};
+    s.requests = dedupe(s.requests, keySignup).map((r,i)=>({
+      id: r.id || r.docId || stableId()+i,
+      name: r.name || r.fullName || r.memberName || '',
+      phone: r.phone || '',
+      area: r.area || r.address || '',
+      code: r.code || r.password || '',
+      status: r.status || 'pending',
+      date: r.date || r.createdAt || r.time || now(),
+      docId: r.docId || r.id || ''
+    }));
+    s.dataRequests = dedupe(s.dataRequests, keyDataReq).map((r,i)=>({
+      id: r.id || r.docId || stableId()+i,
+      memberId: r.memberId || '',
+      memberName: r.memberName || r.name || '',
+      memberUsername: r.memberUsername || r.username || '',
+      phone: r.phone || '',
+      type: r.type || 'تعديل بيانات',
+      currentData: r.currentData || r.current || '',
+      newData: r.newData || r.newValue || '',
+      status: r.status || 'pending',
+      createdAt: r.createdAt || r.time || now(),
+      docId: r.docId || r.id || ''
+    }));
+    s.adminMessages = dedupe(s.adminMessages, keyAdminReq);
+    s.logs = safeArr(s.logs).slice(0,350);
+    s.notifications = safeArr(s.notifications).slice(0,250);
+    s.products = safeArr(s.products);
+    s.branches = safeArr(s.branches);
+    s.members = safeArr(s.members);
+    s.orders = safeArr(s.orders);
+    if(!s.settings) s.settings = {};
+    window.state = s;
+    return s;
+  }
+
+  function afterRenderPolish(){
+    try{
+      document.querySelectorAll('img').forEach(img=>{
+        if(!img.loading) img.loading = 'lazy';
+        img.decoding = 'async';
+        img.onerror = function(){ this.style.display='none'; };
+      });
+      document.querySelectorAll('button').forEach(btn=>{
+        if(!btn.hasAttribute('type')) btn.setAttribute('type','button');
+        btn.setAttribute('aria-live','polite');
+      });
+    }catch(e){}
+  }
+
+  const originalRender = typeof window.render === 'function' ? window.render.bind(window) : null;
+  if(originalRender){
+    let queued = false;
+    let rendering = false;
+    window.render = function(){
+      if(rendering) return;
+      if(queued) return;
+      queued = true;
+      requestAnimationFrame(()=>{
+        queued = false;
+        rendering = true;
+        try{
+          normalizeStateFinal();
+          originalRender();
+          afterRenderPolish();
+        }catch(err){
+          console.error('LINKO Phase7 render error:', err);
+          try{ originalRender(); }catch(e){}
+        }finally{ rendering = false; }
+      });
+    };
+    window.linkoRenderNow = function(){
+      try{ normalizeStateFinal(); originalRender(); afterRenderPolish(); }catch(e){ console.error(e); }
+    };
+  }
+
+  const originalSave = typeof window.save === 'function' ? window.save.bind(window) : null;
+  if(originalSave){
+    let saveTimer = null;
+    window.save = function(){
+      normalizeStateFinal();
+      try{ originalSave(); }catch(e){ console.error('LINKO save error:', e); }
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(()=>{
+        try{ localStorage.setItem('linko_market_admin_v2_state_backup', JSON.stringify(window.state||{})); }catch(e){}
+      }, 120);
+    };
+  }
+
+  const originalToast = typeof window.toast === 'function' ? window.toast.bind(window) : null;
+  if(originalToast){
+    let lastToast = '', lastAt = 0;
+    window.toast = function(message){
+      const m = txt(message);
+      const t = Date.now();
+      if(m === lastToast && t-lastAt < 900) return;
+      lastToast = m; lastAt = t;
+      originalToast(m);
+    };
+  }
+
+  window.linkoAdminHealthCheck = function(){
+    const s = normalizeStateFinal();
+    const report = {
+      products: s.products.length,
+      branches: s.branches.length,
+      members: s.members.length,
+      orders: s.orders.length,
+      signupRequests: s.requests.length,
+      dataRequests: s.dataRequests.length,
+      notifications: s.notifications.length,
+      logs: s.logs.length,
+      ok: true
+    };
+    console.table(report);
+    try{ toast('فحص الإدارة مكتمل: كل الأقسام الأساسية جاهزة'); }catch(e){}
+    return report;
+  };
+
+  window.addEventListener('load', ()=>{
+    try{
+      if(window.matchMedia && window.matchMedia('(max-width: 980px)').matches){ document.body.classList.add('linko-phase7-low-motion'); }
+      normalizeStateFinal();
+      afterRenderPolish();
+    }catch(e){}
+  }, {once:true, passive:true});
+})();
+</script>
+<!-- ===== /LINKO PHASE 7 ADMIN FINAL ===== -->
+
 </body>
 </html>
