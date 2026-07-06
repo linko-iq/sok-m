@@ -3300,135 +3300,94 @@ console.log('LINKO conservative admin patch loaded: data requests + notification
 
 
 
-<!-- LINKO FINAL PATCH: PRODUCTS + BRANCHES FIRESTORE SYNC, NO HANG -->
-<script type="module" id="linkoFinalProductsBranchesSyncPatch">
-  import { collection, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+<!-- LINKO FINAL CONSERVATIVE PATCH: publish existing branches/products to Firestore and prevent stuck save -->
+<script type="module" id="linkoFinalProductsBranchesPublishPatch">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-  const PRODUCTS = 'linko_market_products';
-  const BRANCHES = 'linko_market_branches';
-  const STATE_KEY = 'linko_admin_state';
-  const db = window.linkoFirestoreDB;
-  const auth = window.linkoFirebaseAuth;
+const firebaseConfig={apiKey:"AIzaSyBI_G4gS3WHQI-VF2JBUHPTACGFC3_s8y4",authDomain:"medina-bazaar-e5d67.firebaseapp.com",projectId:"medina-bazaar-e5d67",storageBucket:"medina-bazaar-e5d67.firebasestorage.app",messagingSenderId:"584827394228",appId:"1:584827394228:web:2447944b4324a17b469fe1"};
+const app=getApps().length?getApps()[0]:initializeApp(firebaseConfig);
+const db=window.linkoFirestoreDB||getFirestore(app);
+const auth=window.linkoFirebaseAuth||getAuth(app);
+const C={branches:'linko_market_branches',products:'linko_market_products'};
+const LS='linko_admin_state';
+function toast(m){try{window.toast(m)}catch(e){alert(m)}}
+function readState(){try{return window.state||JSON.parse(localStorage.getItem(LS)||'{}')||{}}catch(e){return window.state||{}}}
+function saveState(s){window.state=s;try{localStorage.setItem(LS,JSON.stringify(s))}catch(e){}}
+function now(){return new Date().toLocaleString('ar-IQ')}
+function cleanId(v,prefix){v=String(v||'').trim(); return v || (prefix+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));}
+function branchStatus(s){return (s==='hidden'||s==='stopped'||s==='مخفي'||s==='موقوف'||s===false)?'hidden':'visible'}
+function productStatus(s){return (s==='unavailable'||s==='غير متوفر'||s===false)?'unavailable':'available'}
+function cleanBranch(b,i=0){return {id:cleanId(b.id,'branch'),name:String(b.name||'').trim(),icon:String(b.icon||'storefront'),img:String(b.img||b.image||''),status:branchStatus(b.status),order:Number(b.order||i+1),updatedAtText:now()}}
+function cleanProduct(p,i=0,branches=[]){
+  const oldBranch=String(p.branchId||p.branchName||p.branch||'').trim();
+  const br=branches.find(b=>String(b.id)===oldBranch||String(b.name)===oldBranch) || branches[0] || null;
+  return {id:cleanId(p.id,'product'),name:String(p.name||'').trim(),branchId:br?String(br.id):String(p.branchId||''),branchName:br?String(br.name):String(p.branchName||p.branch||''),branch:br?String(br.name):String(p.branch||p.branchName||''),group:String(p.group||p.cat||p.category||''),img:String(p.img||p.image||p.photo||''),status:productStatus(p.status),order:Number(p.order||i+1),updatedAtText:now()}
+}
+function withTimeout(p,ms=18000){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('انتهت مهلة الاتصال مع Firebase')),ms))])}
+async function saveDoc(col,item){await withTimeout(setDoc(doc(db,col,String(item.id)),{...item,updatedAt:serverTimestamp()},{merge:true}))}
+async function publishAll(show=true){
+  const s=readState();
+  const branches=(s.branches||[]).map(cleanBranch).filter(b=>b.name);
+  const products=(s.products||[]).map((p,i)=>cleanProduct(p,i,branches)).filter(p=>p.name);
+  if(!branches.length){toast('لا توجد فروع للنشر');return false}
+  try{
+    await Promise.all(branches.map(b=>saveDoc(C.branches,b)));
+    if(products.length) await Promise.all(products.map(p=>saveDoc(C.products,p)));
+    s.branches=branches; s.products=products; saveState(s);
+    try{localStorage.setItem(C.branches,JSON.stringify(branches));localStorage.setItem(C.products,JSON.stringify(products));}catch(e){}
+    if(show) toast('تم نشر '+branches.length+' فرع و '+products.length+' منتج إلى ملف الأعضاء');
+    try{window.render&&window.render()}catch(e){}
+    return true;
+  }catch(e){console.error('LINKO publish failed',e);toast('فشل النشر: '+(e.message||'تأكد من تسجيل الدخول وقواعد Firebase'));return false}
+}
+window.linkoPublishProductsBranchesToMembers=()=>publishAll(true);
+function injectButton(){
+  const main=document.getElementById('main')||document.querySelector('.main');
+  if(!main||document.getElementById('linkoPublishBtn'))return;
+  const box=document.createElement('div');
+  box.className='panel'; box.style.marginBottom='12px';
+  box.innerHTML='<div class="panel-head"><div><h2>نشر الفروع والمنتجات للأعضاء</h2><p>ينقل الفروع والمنتجات الموجودة في الإدارة إلى Firebase حتى تظهر مباشرة في ملف الأعضاء.</p></div><button id="linkoPublishBtn" class="btn blue" type="button">نشر الآن</button></div>';
+  main.prepend(box);
+  document.getElementById('linkoPublishBtn').onclick=async()=>{const btn=document.getElementById('linkoPublishBtn');btn.disabled=true;const old=btn.textContent;btn.textContent='جاري النشر...';await publishAll(true);btn.disabled=false;btn.textContent=old;};
+}
+setInterval(injectButton,1200); setTimeout(injectButton,1000);
+onAuthStateChanged(auth,u=>{if(u){setTimeout(()=>publishAll(false),2500)}});
 
-  const toast = (m)=>{ try{ window.toast(m); }catch(e){ console.log(m); } };
-  const el = (id)=>document.getElementById(id);
-  const val = (id)=> (el(id)?.value || '').trim();
-  const now = ()=> new Date().toLocaleString('ar-IQ');
-  const safe = (x)=> JSON.parse(JSON.stringify(x || {}));
-  const setBtnBusy = (busy)=>{
-    const btn = document.querySelector('.modal.show .btn.wide, .modal-card .btn.wide');
-    if(btn){ btn.disabled = !!busy; btn.dataset.oldText = btn.dataset.oldText || btn.textContent; btn.textContent = busy ? 'جاري الحفظ...' : btn.dataset.oldText; }
-  };
-  const withTimeout = (promise, ms=18000)=> Promise.race([
-    promise,
-    new Promise((_, reject)=> setTimeout(()=>reject(new Error('timeout')), ms))
-  ]);
-  const saveState = ()=>{ try{ localStorage.setItem(STATE_KEY, JSON.stringify(window.state || {})); }catch(e){} };
-  const normalizeBranchStatus = (s)=> (s === 'hidden' || s === 'stopped' || s === 'مخفي' || s === 'موقوف') ? 'hidden' : 'visible';
-  const normalizeProductStatus = (s)=> (s === 'unavailable' || s === 'غير متوفر') ? 'unavailable' : 'available';
-  const branchByAny = (x)=> (window.state?.branches||[]).find(b => String(b.id)===String(x) || String(b.name)===String(x)) || null;
-  const branchPayload = (b, i=0)=>({
-    id: String(b.id || Date.now()+i),
-    name: String(b.name || '').trim(),
-    icon: String(b.icon || 'storefront').trim() || 'storefront',
-    img: String(b.img || ''),
-    status: normalizeBranchStatus(b.status),
-    order: Number(b.order || i+1),
-    updatedAtText: now(),
-    updatedAt: serverTimestamp()
-  });
-  const productPayload = (p, i=0)=>{
-    const b = branchByAny(p.branchId || p.branch || p.branchName || val('pBranch'));
-    return {
-      id: String(p.id || Date.now()+i),
-      name: String(p.name || '').trim(),
-      branchId: b ? String(b.id) : String(p.branchId || ''),
-      branchName: b ? String(b.name) : String(p.branchName || p.branch || ''),
-      branch: b ? String(b.name) : String(p.branch || p.branchName || ''),
-      group: String(p.group || '').trim(),
-      img: String(p.img || ''),
-      status: normalizeProductStatus(p.status),
-      order: Number(p.order || i+1),
-      updatedAtText: now(),
-      updatedAt: serverTimestamp()
-    };
-  };
-  const upsert = async (coll, item)=>{
-    if(!db) throw new Error('Firestore غير جاهز');
-    await withTimeout(setDoc(doc(db, coll, String(item.id)), safe(item), {merge:true}), 18000);
-  };
-
-  // نشر المنتجات والفروع الموجودة حالياً حتى تظهر للأعضاء إذا كانت Firestore فارغة أو ناقصة.
-  async function publishCurrentCatalog(){
-    if(!db || !auth?.currentUser || !window.state) return;
-    try{
-      const branches = (window.state.branches||[]).map(branchPayload).filter(b=>b.name);
-      const products = (window.state.products||[]).map(productPayload).filter(p=>p.name);
-      if(branches.length) await Promise.all(branches.map(b=>upsert(BRANCHES,b)));
-      if(products.length) await Promise.all(products.map(p=>upsert(PRODUCTS,p)));
-      try{ localStorage.setItem('linko_catalog_published_once','1'); }catch(e){}
-    }catch(e){ console.warn('catalog publish skipped:', e); }
-  }
-
-  window.saveBranch = async function(id){
-    if(!auth?.currentUser){ toast('سجل دخول الإدارة أولاً'); return; }
-    const name = val('bName');
-    if(!name){ toast('اكتب اسم الفرع'); return; }
-    setBtnBusy(true);
-    try{
-      const old = id ? (window.state.branches||[]).find(x=>String(x.id)===String(id)) : null;
-      const row = branchPayload({
-        id: id || Date.now(),
-        name,
-        icon: val('bIcon') || old?.icon || 'storefront',
-        order: Number(val('bOrder') || old?.order || ((window.state.branches||[]).length+1)),
-        status: val('bStatus') || old?.status || 'visible',
-        img: val('bImg') || old?.img || ''
-      });
-      if(id && old) Object.assign(old, row); else (window.state.branches = window.state.branches || []).unshift(row);
-      saveState();
-      await upsert(BRANCHES, row);
-      try{ window.closeModal(); }catch(e){}
-      toast('تم حفظ الفرع ومزامنته مع الأعضاء');
-      try{ window.render(); }catch(e){}
-    }catch(e){
-      console.error('saveBranch final patch error:', e);
-      toast(e.message === 'timeout' ? 'تعذر حفظ الفرع: تحقق من اتصال Firebase' : 'تعذر حفظ الفرع');
-    }finally{ setBtnBusy(false); }
-  };
-
-  window.saveProduct = async function(id){
-    if(!auth?.currentUser){ toast('سجل دخول الإدارة أولاً'); return; }
-    const name = val('pName');
-    if(!name){ toast('اكتب اسم المنتج'); return; }
-    setBtnBusy(true);
-    try{
-      const old = id ? (window.state.products||[]).find(x=>String(x.id)===String(id)) : null;
-      const row = productPayload({
-        id: id || Date.now(),
-        name,
-        branchId: val('pBranch'),
-        branch: val('pBranch'),
-        group: val('pGroup'),
-        order: Number(val('pOrder') || old?.order || ((window.state.products||[]).length+1)),
-        status: val('pStatus') || old?.status || 'available',
-        img: val('pImg') || old?.img || ''
-      });
-      if(id && old) Object.assign(old, row); else (window.state.products = window.state.products || []).unshift(row);
-      saveState();
-      await upsert(PRODUCTS, row);
-      try{ window.closeModal(); }catch(e){}
-      toast('تم حفظ المنتج ومزامنته مع الأعضاء');
-      try{ window.render(); }catch(e){}
-    }catch(e){
-      console.error('saveProduct final patch error:', e);
-      toast(e.message === 'timeout' ? 'تعذر حفظ المنتج: تحقق من اتصال Firebase' : 'تعذر حفظ المنتج');
-    }finally{ setBtnBusy(false); }
-  };
-
-  function start(){ setTimeout(publishCurrentCatalog, 1500); }
-  if(auth) onAuthStateChanged(auth, user=>{ if(user) start(); }); else start();
+window.saveBranch=async function(id){
+  const btn=document.activeElement, old=btn&&btn.tagName==='BUTTON'?btn.textContent:null; if(btn&&old){btn.disabled=true;btn.textContent='جاري الحفظ...'}
+  try{
+    const s=readState();
+    const oldBranches=(s.branches||[]).map(cleanBranch).filter(b=>b.name);
+    const data=cleanBranch({id:id||Date.now(),name:document.getElementById('bName')?.value||'',icon:document.getElementById('bIcon')?.value||'storefront',img:document.getElementById('bImg')?.value||'',status:document.getElementById('bStatus')?.value||'visible',order:document.getElementById('bOrder')?.value||oldBranches.length+1});
+    if(!data.name){toast('اكتب اسم الفرع');return}
+    const next=id?oldBranches.map(b=>String(b.id)===String(id)?data:b):[data,...oldBranches];
+    if(id&&!next.find(b=>String(b.id)===String(data.id)))next.unshift(data);
+    s.branches=next; saveState(s); localStorage.setItem(C.branches,JSON.stringify(next));
+    await saveDoc(C.branches,data);
+    if(window.closeModal)window.closeModal(); toast('تم حفظ الفرع وظهر للأعضاء'); if(window.render)window.render();
+  }catch(e){console.error(e);toast('تعذر حفظ الفرع: '+(e.message||'خطأ Firebase'))}
+  finally{if(btn&&old){btn.disabled=false;btn.textContent=old}}
+};
+window.saveProduct=async function(id){
+  const btn=document.activeElement, old=btn&&btn.tagName==='BUTTON'?btn.textContent:null; if(btn&&old){btn.disabled=true;btn.textContent='جاري الحفظ...'}
+  try{
+    const s=readState();
+    const branches=(s.branches||[]).map(cleanBranch).filter(b=>b.name);
+    const current=(s.products||[]).map((p,i)=>cleanProduct(p,i,branches)).filter(p=>p.name);
+    const branchValue=document.getElementById('pBranch')?.value||'';
+    const br=branches.find(b=>String(b.id)===String(branchValue)||String(b.name)===String(branchValue))||branches[0];
+    const data=cleanProduct({id:id||Date.now(),name:document.getElementById('pName')?.value||'',branchId:br?.id||branchValue,branchName:br?.name||branchValue,branch:br?.name||branchValue,group:document.getElementById('pGroup')?.value||'',img:document.getElementById('pImg')?.value||'',status:document.getElementById('pStatus')?.value||'available',order:document.getElementById('pOrder')?.value||current.length+1},0,branches);
+    if(!data.name){toast('اكتب اسم المنتج');return}
+    const next=id?current.map(p=>String(p.id)===String(id)?data:p):[data,...current];
+    if(id&&!next.find(p=>String(p.id)===String(data.id)))next.unshift(data);
+    s.products=next; saveState(s); localStorage.setItem(C.products,JSON.stringify(next));
+    await saveDoc(C.products,data);
+    if(window.closeModal)window.closeModal(); toast('تم حفظ المنتج وظهر للأعضاء'); if(window.render)window.render();
+  }catch(e){console.error(e);toast('تعذر حفظ المنتج: '+(e.message||'خطأ Firebase'))}
+  finally{if(btn&&old){btn.disabled=false;btn.textContent=old}}
+};
 </script>
 
 </body>
