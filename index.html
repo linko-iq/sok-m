@@ -2389,5 +2389,184 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   waitForAuth();
 </script>
 
+<!-- LINKO FIREBASE ORDERS - ADMIN PRODUCTION PHASE 5 -->
+<script type="module" id="linkoFirebaseOrdersAdminPhase5">
+  import { collection, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+
+  const ORDER_COLLECTION = 'linko_market_orders';
+  const ORDER_LOCAL_KEY = 'linko_market_orders';
+  const ADMIN_STATE_KEY = 'linko_admin_state';
+  let linkoOrdersReady = false;
+  let linkoOrdersLoading = false;
+  let linkoOrdersSaving = false;
+
+  const showToast = (msg) => { try { window.toast(msg); } catch(e) { console.log(msg); } };
+  const nowIQ = () => new Date().toLocaleString('ar-IQ');
+  const safeJSON = (v) => JSON.parse(JSON.stringify(v || {}));
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const statusText = (s) => ({new:'جديد',processing:'قيد المتابعة',completed:'مكتمل',cancelled:'ملغي','جديد':'جديد','قيد المتابعة':'قيد المتابعة','مكتمل':'مكتمل','ملغي':'ملغي'}[s] || s || 'جديد');
+  const statusClass = (s) => (['completed','مكتمل'].includes(s) ? 'ok' : ['new','processing','جديد','قيد المتابعة'].includes(s) ? 'wait' : 'bad');
+  const normStatus = (s) => ({'new':'جديد','processing':'قيد المتابعة','completed':'مكتمل','cancelled':'ملغي','canceled':'ملغي','pending':'جديد','جديد':'جديد','قيد المتابعة':'قيد المتابعة','مكتمل':'مكتمل','ملغي':'ملغي'}[s] || 'جديد');
+  const parseDate = (v) => { const d = new Date(v); return isNaN(d) ? new Date() : d; };
+  const todayKey = (v) => parseDate(v).toISOString().slice(0,10);
+  const writeAdminState = () => { try { localStorage.setItem(ADMIN_STATE_KEY, JSON.stringify(window.state || {})); } catch(e){} };
+  const readLocalOrders = () => { try { return JSON.parse(localStorage.getItem(ORDER_LOCAL_KEY) || '[]') || []; } catch(e){ return []; } };
+
+  const cleanItem = (item = {}, i = 0) => ({
+    id: String(item.id || item.productId || ('item_' + i)),
+    name: String(item.name || item.productName || item.title || '').trim(),
+    branchId: String(item.branchId || ''),
+    branchName: String(item.branchName || item.branch || ''),
+    quantity: Number(item.quantity || item.qty || 1),
+    details: String(item.details || ''),
+    note: String(item.note || ''),
+    restaurant: String(item.restaurant || ''),
+    isSpecial: !!item.isSpecial,
+    img: String(item.img || item.image || '')
+  });
+
+  const cleanOrder = (order = {}, i = 0) => {
+    const id = String(order.id || ('order_' + Date.now() + '_' + i));
+    const items = (order.items || order.products || []).map(cleanItem);
+    const created = String(order.createdAt || order.date || nowIQ());
+    const phone = String(order.phone || order.memberPhone || '').trim();
+    const address = String(order.address || order.memberAddress || '').trim();
+    const branchName = String(order.branchName || order.branch || items[0]?.branchName || 'متعدد').trim();
+    return {
+      id,
+      orderNumber: String(order.orderNumber || order.number || ('ORD-' + id)).trim(),
+      memberId: String(order.memberId || ''),
+      memberName: String(order.memberName || order.name || 'زائر').trim(),
+      memberUsername: String(order.memberUsername || order.username || '').trim(),
+      phone,
+      memberPhone: phone,
+      address,
+      memberAddress: address,
+      branchId: String(order.branchId || items[0]?.branchId || ''),
+      branchName,
+      branch: branchName,
+      items,
+      products: items,
+      specialRequests: order.specialRequests || items.filter(x => x.isSpecial),
+      createdAt: created,
+      date: created,
+      status: normStatus(order.status)
+    };
+  };
+
+  const sortOrders = (rows) => [...(rows || [])].map(cleanOrder).sort((a,b) => parseDate(b.createdAt || b.date) - parseDate(a.createdAt || a.date));
+  const writeLocalOrders = (rows) => {
+    const orders = sortOrders(rows);
+    try { localStorage.setItem(ORDER_LOCAL_KEY, JSON.stringify(orders)); } catch(e) {}
+    try { window.state = window.state || {}; window.state.orders = orders; writeAdminState(); } catch(e) {}
+  };
+  const saveOrderDoc = async (order) => {
+    const db = window.linkoFirestoreDB;
+    if(!db) throw new Error('Firestore غير جاهز');
+    const data = {...cleanOrder(order), updatedAtText: nowIQ(), updatedAt: serverTimestamp()};
+    await setDoc(doc(db, ORDER_COLLECTION, String(data.id)), safeJSON(data), { merge: false });
+  };
+  const logAction = (type, details) => {
+    try{
+      window.state.logs = window.state.logs || [];
+      window.state.logs.unshift({id: Date.now(), type, by: 'مدير النظام', time: nowIQ(), details});
+      writeAdminState();
+    }catch(e){}
+  };
+
+  const loadOrdersFromFirestore = async () => {
+    if(linkoOrdersLoading) return;
+    const db = window.linkoFirestoreDB;
+    const auth = window.linkoFirebaseAuth;
+    if(!db || !auth?.currentUser) return;
+    linkoOrdersLoading = true;
+    try{
+      const snap = await getDocs(collection(db, ORDER_COLLECTION));
+      const cloudOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if(cloudOrders.length){
+        writeLocalOrders(cloudOrders);
+      }else{
+        const localOrders = sortOrders(window.state?.orders?.length ? window.state.orders : readLocalOrders());
+        if(localOrders.length){
+          await Promise.all(localOrders.map(o => saveOrderDoc(o)));
+          writeLocalOrders(localOrders);
+        }else{
+          writeLocalOrders([]);
+        }
+      }
+      linkoOrdersReady = true;
+      try { window.render(); } catch(e) {}
+      showToast('تم تحميل طلبات الشراء من Firebase');
+    }catch(error){
+      console.error('LINKO orders Firestore load error:', error);
+      showToast('تعذر تحميل طلبات الشراء من Firebase');
+    }finally{
+      linkoOrdersLoading = false;
+    }
+  };
+
+  const orderDetailsHTML = (order) => {
+    const items = order.items || [];
+    if(!items.length) return '<p class="muted">لا توجد تفاصيل منتجات</p>';
+    return items.map((x,i) => `<div style="padding:8px 0;border-top:1px dashed var(--line)"><b>${i+1}. ${esc(x.name || '-')}</b><p class="muted">الفرع: ${esc(x.branchName || order.branchName || '-')} • الكمية: ${esc(x.quantity || 1)}${x.details ? ' • التفاصيل: '+esc(x.details) : ''}${x.note ? ' • ملاحظة: '+esc(x.note) : ''}${x.restaurant ? ' • المطعم: '+esc(x.restaurant) : ''}${x.isSpecial ? ' • طلب خاص' : ''}</p></div>`).join('');
+  };
+
+  window.orderCard = function(raw){
+    const o = cleanOrder(raw);
+    const selectId = 'orderDetails_' + String(o.id).replace(/[^a-zA-Z0-9_-]/g,'_');
+    const options = ['جديد','قيد المتابعة','مكتمل','ملغي'].map(s => `<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`).join('');
+    return `<div class="request-card"><h3>${esc(o.orderNumber)} <span class="status ${statusClass(o.status)}">${statusText(o.status)}</span></h3><p class="muted">${esc(o.memberName || '-')} • ${esc(o.memberUsername || '-')} • ${esc(o.phone || '-')}<br>العنوان: ${esc(o.address || '-')}<br>الفرع: ${esc(o.branchName || '-')} • ${esc(o.createdAt || '-')}</p><div id="${selectId}" class="hidden">${orderDetailsHTML(o)}${(o.specialRequests||[]).length ? '<p class="muted">يوجد طلبات خاصة ضمن هذا الطلب.</p>' : ''}</div><div class="actions-row"><button class="btn secondary mini" onclick="document.getElementById('${selectId}').classList.toggle('hidden')">مشاهدة التفاصيل</button><select class="input" style="max-width:180px;min-height:38px" onchange="updateOrderStatus('${esc(o.id)}',this.value)">${options}</select></div></div>`;
+  };
+
+  window.purchaseOrders = function(){
+    if(!linkoOrdersReady && window.linkoFirebaseAuth?.currentUser){ setTimeout(loadOrdersFromFirestore, 0); }
+    const q = (document.getElementById('orderSearch')?.value || '').trim();
+    const now = new Date();
+    const today = todayKey(now);
+    const weekAgo = new Date(now); weekAgo.setDate(now.getDate()-7);
+    const monthAgo = new Date(now); monthAgo.setMonth(now.getMonth()-1);
+    const orders = sortOrders(window.state?.orders || []).filter(o => !q || [o.orderNumber,o.memberName,o.memberUsername,o.phone,o.address,o.branchName,o.status].join(' ').includes(q));
+    const allOrders = sortOrders(window.state?.orders || []);
+    const todayCount = allOrders.filter(o => todayKey(o.createdAt || o.date) === today).length;
+    const weekCount = allOrders.filter(o => parseDate(o.createdAt || o.date) >= weekAgo).length;
+    const monthCount = allOrders.filter(o => parseDate(o.createdAt || o.date) >= monthAgo).length;
+    return `<div class="kpis"><div class="kpi" data-icon="today"><small>طلبات اليوم</small><b>${todayCount}</b></div><div class="kpi" data-icon="date_range"><small>طلبات الأسبوع</small><b>${weekCount}</b></div><div class="kpi" data-icon="calendar_month"><small>طلبات الشهر</small><b>${monthCount}</b></div><div class="kpi" data-icon="receipt_long"><small>إجمالي الطلبات</small><b>${allOrders.length}</b></div></div><div class="panel"><div class="panel-head"><div><h2>طلبات الشراء</h2><p>طلبات الشراء مربوطة مباشرة مع Firebase: تحميل، عرض التفاصيل، وتحديث الحالة.</p></div><button class="btn secondary mini" onclick="linkoReloadOrders()">تحديث Firebase</button></div><div class="tools"><input class="input" id="orderSearch" oninput="linkoStableSearch(this)" value="${esc(q)}" placeholder="بحث برقم الطلب أو اسم العضو أو الهاتف"><select onchange="orderSearch.value=this.value;linkoStableSearch(orderSearch)"><option value="">كل الحالات</option><option>جديد</option><option>قيد المتابعة</option><option>مكتمل</option><option>ملغي</option></select><button class="btn secondary" onclick="render()">بحث</button></div><div class="cards">${orders.length ? orders.map(window.orderCard).join('') : '<div class="empty">لا توجد طلبات شراء حتى الآن</div>'}</div></div>`;
+  };
+
+  window.updateOrderStatus = async function(id, status){
+    if(linkoOrdersSaving) return;
+    const current = sortOrders(window.state?.orders || readLocalOrders());
+    const order = current.find(o => String(o.id) === String(id));
+    if(!order){ showToast('الطلب غير موجود'); return; }
+    order.status = normStatus(status);
+    linkoOrdersSaving = true;
+    try{
+      writeLocalOrders(current);
+      await saveOrderDoc(order);
+      logAction('تغيير حالة طلب', 'تم تغيير حالة الطلب ' + (order.orderNumber || id) + ' إلى ' + order.status);
+      showToast('تم تحديث حالة الطلب في Firebase');
+      try { window.render(); } catch(e) {}
+    }catch(error){
+      console.error('LINKO order status update error:', error);
+      showToast('تعذر تحديث حالة الطلب في Firebase');
+    }finally{
+      linkoOrdersSaving = false;
+    }
+  };
+
+  window.linkoReloadOrders = async function(){ await loadOrdersFromFirestore(); };
+
+  const waitForAuth = () => {
+    if(window.linkoFirebaseAuth){
+      onAuthStateChanged(window.linkoFirebaseAuth, (user) => {
+        if(user) setTimeout(loadOrdersFromFirestore, 450);
+        else linkoOrdersReady = false;
+      });
+    }else{ setTimeout(waitForAuth, 200); }
+  };
+  waitForAuth();
+</script>
+
 </body>
 </html>
