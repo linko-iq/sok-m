@@ -1777,7 +1777,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
 <!-- LINKO FIREBASE PRODUCTS - ADMIN PRODUCTION PHASE 2 -->
 <script type="module" id="linkoFirebaseProductsAdminPhase2">
-  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
   const PRODUCT_COLLECTION = 'linko_market_products';
@@ -1972,7 +1972,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
 
 <script type="module" id="linkoFirebaseBranchesAdminPhase3">
-  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
   const BRANCH_COLLECTION = 'linko_market_branches';
@@ -2158,7 +2158,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
 <!-- LINKO FIREBASE MEMBERS - ADMIN PRODUCTION PHASE 4 -->
 <script type="module" id="linkoFirebaseMembersAdminPhase4">
-  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
   const MEMBER_COLLECTION = 'linko_market_members';
@@ -2572,7 +2572,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
 <!-- LINKO FIREBASE REQUESTS - ADMIN PRODUCTION PHASE 6 -->
 <script type="module" id="linkoFirebaseRequestsAdminPhase6">
-  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
   const SIGNUP_COLLECTION = 'linko_market_requests';
@@ -2585,6 +2585,9 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   let linkoRequestsReady = false;
   let linkoRequestsLoading = false;
   let linkoRequestsSaving = false;
+  let linkoSignupUnsub = null;
+  let linkoDataReqUnsub = null;
+  let linkoRealtimeStarted = false;
 
   const showToast = (msg) => { try { window.toast(msg); } catch(e) { console.log(msg); } };
   const nowIQ = () => new Date().toLocaleString('ar-IQ');
@@ -2668,6 +2671,38 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
   const sortByDateDesc = (rows, cleaner) => [...(rows || [])].map(cleaner).sort((a,b) => parseDate(b.createdAt || b.date) - parseDate(a.createdAt || a.date));
 
+  const signupKey = (r) => {
+    const c = cleanSignup(r);
+    const username = String(c.username || '').trim().toLowerCase();
+    const phone = String(c.phone || '').replace(/\D/g,'');
+    const name = String(c.fullName || c.name || '').trim().toLowerCase();
+    if(username || phone) return username + '|' + phone;
+    return name ? ('name|' + name) : ('id|' + c.id);
+  };
+
+  const dataReqKey = (r) => {
+    const c = cleanDataRequest(r);
+    return [c.memberId, c.memberUsername, c.phone, c.type, c.newData].map(x => String(x || '').trim().toLowerCase()).join('|') || ('id|' + c.id);
+  };
+
+  const dedupeByKey = (rows, cleaner, keyer) => {
+    const sorted = sortByDateDesc(rows || [], cleaner);
+    const map = new Map();
+    const duplicateIds = [];
+    for(const row of sorted){
+      const key = keyer(row);
+      if(map.has(key)) duplicateIds.push(row.id);
+      else map.set(key, row);
+    }
+    return { rows: [...map.values()], duplicateIds };
+  };
+
+  const deleteDuplicatesSilently = async (collectionName, ids) => {
+    if(!ids || !ids.length) return;
+    try{ await Promise.all(ids.map(id => deleteDocById(collectionName, id))); }
+    catch(e){ console.warn('LINKO duplicate cleanup skipped:', collectionName, e); }
+  };
+
   const saveDoc = async (collectionName, item) => {
     const db = window.linkoFirestoreDB;
     if(!db) throw new Error('Firestore غير جاهز');
@@ -2707,16 +2742,24 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
         getDocs(collection(db, SIGNUP_COLLECTION)),
         getDocs(collection(db, DATA_REQ_COLLECTION))
       ]);
-      let signups = signupSnap.docs.map(d => ({id:d.id, ...d.data()}));
-      let dataRequests = dataReqSnap.docs.map(d => ({id:d.id, ...d.data()}));
+      let signups = signupSnap.docs.map(d => ({...d.data(), id:d.id, docId:d.id}));
+      let dataRequests = dataReqSnap.docs.map(d => ({...d.data(), id:d.id, docId:d.id}));
       if(!signups.length){
         signups = sortByDateDesc(window.state?.requests?.length ? window.state.requests : readLocal(SIGNUP_LOCAL_KEY), cleanSignup);
         if(signups.length) await Promise.all(signups.map(x => saveDoc(SIGNUP_COLLECTION, x)));
-      }else signups = sortByDateDesc(signups, cleanSignup);
+      }else{
+        const d = dedupeByKey(signups, cleanSignup, signupKey);
+        signups = d.rows;
+        deleteDuplicatesSilently(SIGNUP_COLLECTION, d.duplicateIds);
+      }
       if(!dataRequests.length){
         dataRequests = sortByDateDesc(window.state?.dataRequests?.length ? window.state.dataRequests : readLocal(DATA_REQ_LOCAL_KEY), cleanDataRequest);
         if(dataRequests.length) await Promise.all(dataRequests.map(x => saveDoc(DATA_REQ_COLLECTION, x)));
-      }else dataRequests = sortByDateDesc(dataRequests, cleanDataRequest);
+      }else{
+        const d2 = dedupeByKey(dataRequests, cleanDataRequest, dataReqKey);
+        dataRequests = d2.rows;
+        deleteDuplicatesSilently(DATA_REQ_COLLECTION, d2.duplicateIds);
+      }
       writeAllLocal(signups, dataRequests);
       linkoRequestsReady = true;
       try { window.render(); } catch(e) {}
@@ -2730,13 +2773,13 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   window.subscriptions = function(){
     if(!linkoRequestsReady && window.linkoFirebaseAuth?.currentUser) setTimeout(loadRequestsFromFirestore,0);
     const search = (document.getElementById('reqSearch')?.value || '').trim();
-    const list = sortByDateDesc(window.state?.requests || [], cleanSignup).filter(r => !search || [r.fullName,r.name,r.username,r.phone,r.address,r.status].join(' ').includes(search));
+    const list = dedupeByKey(window.state?.requests || [], cleanSignup, signupKey).rows.filter(r => !search || [r.fullName,r.name,r.username,r.phone,r.address,r.status].join(' ').includes(search));
     return `<div class="panel"><div class="panel-head"><div><h2>طلبات الاشتراك</h2><p>مرتبطة مباشرة مع Firebase. القبول ينشئ العضو داخل قسم الأعضاء.</p></div><button class="btn secondary mini" onclick="linkoReloadRequests()">تحديث Firebase</button></div><div class="tools"><input class="input" id="reqSearch" oninput="linkoStableSearch(this)" value="${esc(search)}" placeholder="بحث بالاسم أو اسم المستخدم أو الهاتف"><button class="btn secondary" onclick="render()">بحث</button><button class="btn danger" onclick="clearRejected()">حذف المرفوض</button></div><div class="cards">${list.length?list.map(r=>`<div class="request-card"><h3>${esc(r.fullName || r.name)} <span class="status ${statusClass(r.status)}">${statusText(r.status)}</span></h3><p class="muted">اسم المستخدم: ${esc(r.username||'-')} • الهاتف: ${esc(r.phone||'-')}<br>العنوان: ${esc(r.address||'-')} • ${esc(r.createdAt||r.date||'')}</p><div class="actions-row">${reqStatus(r.status)==='pending'?`<button class="btn mini" onclick="approveReq(${q(r.id)})">قبول</button><button class="btn warn mini" onclick="rejectReq(${q(r.id)})">رفض</button>`:''}<button class="btn danger mini" onclick="deleteReq(${q(r.id)})">حذف</button></div></div>`).join(''):'<div class="empty">لا توجد طلبات اشتراك</div>'}</div></div>`;
   };
 
   window.approveReq = async function(id){
     if(linkoRequestsSaving) return;
-    const signups = sortByDateDesc(window.state?.requests || [], cleanSignup);
+    const signups = dedupeByKey(window.state?.requests || [], cleanSignup, signupKey).rows;
     const r = signups.find(x => String(x.id) === String(id));
     if(!r){ showToast('طلب الاشتراك غير موجود'); return; }
     const members = (window.state?.members || readLocal(MEMBERS_LOCAL_KEY)).map(cleanMember);
@@ -2772,7 +2815,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   };
 
   window.rejectReq = async function(id){
-    const signups = sortByDateDesc(window.state?.requests || [], cleanSignup);
+    const signups = dedupeByKey(window.state?.requests || [], cleanSignup, signupKey).rows;
     const r = signups.find(x => String(x.id) === String(id));
     if(!r) return;
     r.status = 'rejected';
@@ -2787,7 +2830,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
 
   window.deleteReq = async function(id){
     if(!confirm('تأكيد حذف طلب الاشتراك؟')) return;
-    const signups = sortByDateDesc(window.state?.requests || [], cleanSignup).filter(x => String(x.id) !== String(id));
+    const signups = dedupeByKey(window.state?.requests || [], cleanSignup, signupKey).rows.filter(x => String(x.id) !== String(id));
     try{
       await deleteDocById(SIGNUP_COLLECTION, id);
       writeAllLocal(signups);
@@ -2798,7 +2841,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   };
 
   window.clearRejected = async function(){
-    const all = sortByDateDesc(window.state?.requests || [], cleanSignup);
+    const all = dedupeByKey(window.state?.requests || [], cleanSignup, signupKey).rows
     const rejected = all.filter(x => reqStatus(x.status) === 'rejected');
     if(!rejected.length){ showToast('لا توجد طلبات مرفوضة'); return; }
     if(!confirm('تأكيد حذف كل الطلبات المرفوضة؟')) return;
@@ -2814,7 +2857,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   window.dataRequests = function(){
     if(!linkoRequestsReady && window.linkoFirebaseAuth?.currentUser) setTimeout(loadRequestsFromFirestore,0);
     const search = (document.getElementById('dataReqSearch')?.value || '').trim();
-    const list = sortByDateDesc(window.state?.dataRequests || [], cleanDataRequest).filter(r => !search || [r.memberName,r.memberUsername,r.phone,r.type,r.newData,r.status].join(' ').includes(search));
+    const list = dedupeByKey(window.state?.dataRequests || [], cleanDataRequest, dataReqKey).rows.filter(r => !search || [r.memberName,r.memberUsername,r.phone,r.type,r.newData,r.status].join(' ').includes(search));
     const pending = list.filter(x => reqStatus(x.status)==='pending').length;
     return `<div class="panel"><div class="panel-head"><div><h2>طلبات تعديل البيانات</h2><p>مرتبطة مباشرة مع Firebase. لا يتم تعديل بيانات العضو إلا بعد موافقة الإدارة.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="status ${pending?'bad':'ok'}">${pending} بانتظار</span><button class="btn secondary mini" onclick="linkoReloadRequests()">تحديث Firebase</button></div></div><div class="tools"><input class="input" id="dataReqSearch" oninput="linkoStableSearch(this)" value="${esc(search)}" placeholder="بحث باسم العضو أو نوع الطلب"><button class="btn secondary" onclick="render()">بحث</button></div><div class="cards">${list.length?list.map(window.dataRequestCard).join(''):'<div class="empty">لا توجد طلبات تعديل بيانات</div>'}</div></div>`;
   };
@@ -2839,7 +2882,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   };
 
   window.approveDataRequest = async function(id){
-    const requests = sortByDateDesc(window.state?.dataRequests || [], cleanDataRequest);
+    const requests = dedupeByKey(window.state?.dataRequests || [], cleanDataRequest, dataReqKey).rows;
     const r = requests.find(x => String(x.id) === String(id));
     if(!r) return;
     const members = (window.state?.members || readLocal(MEMBERS_LOCAL_KEY)).map(cleanMember);
@@ -2859,7 +2902,7 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
   };
 
   window.rejectDataRequest = async function(id){
-    const requests = sortByDateDesc(window.state?.dataRequests || [], cleanDataRequest);
+    const requests = dedupeByKey(window.state?.dataRequests || [], cleanDataRequest, dataReqKey).rows;
     const r = requests.find(x => String(x.id) === String(id));
     if(!r) return;
     r.status = 'rejected'; r.resolvedAt = nowIQ();
@@ -2872,13 +2915,67 @@ html,body{overflow-x:hidden!important;max-width:100%!important;touch-action:pan-
     }catch(error){ console.error(error); showToast('تعذر رفض طلب التعديل'); }
   };
 
+
+  const shouldRenderLive = () => {
+    try{
+      const sec = (typeof active !== 'undefined' ? active : '') || window.current || window.activeSection || '';
+      return !sec || ['dashboard','subscriptions','dataRequests','members'].includes(sec);
+    }catch(e){ return true; }
+  };
+
+  const renderLive = () => { try{ if(shouldRenderLive()) window.render(); }catch(e){} };
+
+  const startRealtimeRequests = () => {
+    const db = window.linkoFirestoreDB;
+    const auth = window.linkoFirebaseAuth;
+    if(!db || !auth?.currentUser || linkoRealtimeStarted) return;
+    linkoRealtimeStarted = true;
+
+    try{
+      if(linkoSignupUnsub) linkoSignupUnsub();
+      linkoSignupUnsub = onSnapshot(collection(db, SIGNUP_COLLECTION), (snap) => {
+        const raw = snap.docs.map(d => ({...d.data(), id:d.id, docId:d.id}));
+        const d = dedupeByKey(raw, cleanSignup, signupKey);
+        writeAllLocal(d.rows, null, null);
+        linkoRequestsReady = true;
+        deleteDuplicatesSilently(SIGNUP_COLLECTION, d.duplicateIds);
+        renderLive();
+      }, (error) => {
+        console.error('LINKO signup realtime error:', error);
+        showToast('تعذر استقبال طلبات الاشتراك مباشرة');
+      });
+    }catch(e){ console.error('LINKO signup listener setup error:', e); }
+
+    try{
+      if(linkoDataReqUnsub) linkoDataReqUnsub();
+      linkoDataReqUnsub = onSnapshot(collection(db, DATA_REQ_COLLECTION), (snap) => {
+        const raw = snap.docs.map(d => ({...d.data(), id:d.id, docId:d.id}));
+        const d = dedupeByKey(raw, cleanDataRequest, dataReqKey);
+        writeAllLocal(null, d.rows, null);
+        linkoRequestsReady = true;
+        deleteDuplicatesSilently(DATA_REQ_COLLECTION, d.duplicateIds);
+        renderLive();
+      }, (error) => {
+        console.error('LINKO data request realtime error:', error);
+        showToast('تعذر استقبال طلبات تعديل البيانات مباشرة');
+      });
+    }catch(e){ console.error('LINKO data request listener setup error:', e); }
+  };
+
   window.linkoReloadRequests = async function(){ await loadRequestsFromFirestore(); };
 
   const waitForAuth = () => {
     if(window.linkoFirebaseAuth){
       onAuthStateChanged(window.linkoFirebaseAuth, (user) => {
-        if(user) setTimeout(loadRequestsFromFirestore, 550);
-        else linkoRequestsReady = false;
+        if(user){
+          setTimeout(() => { startRealtimeRequests(); loadRequestsFromFirestore(); }, 550);
+        }else{
+          linkoRequestsReady = false;
+          linkoRealtimeStarted = false;
+          try{ if(linkoSignupUnsub) linkoSignupUnsub(); }catch(e){}
+          try{ if(linkoDataReqUnsub) linkoDataReqUnsub(); }catch(e){}
+          linkoSignupUnsub = null; linkoDataReqUnsub = null;
+        }
       });
     }else setTimeout(waitForAuth, 200);
   };
