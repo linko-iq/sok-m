@@ -3065,3 +3065,128 @@ body:not(.linko-dark) .linko-chat-questions button{
   setTimeout(()=>{ensureHomeDelivery();updateDelivery();updateCartNow();fixAssistantPlace()},200);
 })();
 </script>
+
+
+<!-- ===== LINKO FINAL FIX: stable branch open + secret code visibility ===== -->
+<style id="linkoFinalBranchSecretFixStyle">
+html,body{scroll-behavior:auto!important}
+/* فتح صفحة الفرع بدون طيران أو تمرير ناعم */
+#branchPage{animation:branchPageStableIn .12s ease-out!important;scroll-margin-top:0!important}
+@keyframes branchPageStableIn{from{opacity:.96}to{opacity:1}}
+
+/* مربع الرمز السري بنفس حجم باقي مربعات العضوية */
+.member-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.member-stat,.profile-grid .info-box{min-height:78px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;gap:5px!important;box-sizing:border-box!important}
+.secret-stat b,.secret-info b{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:7px!important;direction:ltr!important;text-align:left!important;width:100%!important}
+.secret-value{font-weight:900!important;letter-spacing:1px!important;direction:ltr!important;unicode-bidi:plaintext!important}
+.secret-eye{width:32px!important;height:32px!important;min-width:32px!important;border-radius:12px!important;border:1px solid rgba(255,255,255,.22)!important;background:rgba(255,255,255,.16)!important;color:#fff!important;display:grid!important;place-items:center!important;box-shadow:none!important;padding:0!important;cursor:pointer!important}
+.secret-info .secret-eye{background:#f8fafc!important;color:#111827!important;border-color:#cbd5e1!important}
+body.linko-dark .secret-info .secret-eye{background:#1e293b!important;color:#fff!important;border-color:rgba(255,255,255,.22)!important}
+.secret-eye .mi{font-size:19px!important}
+.profile-grid{align-items:stretch!important}
+@media(min-width:760px){.profile-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+@media(max-width:520px){.member-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}.profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.member-stat,.profile-grid .info-box{min-height:82px!important}}
+</style>
+<script id="linkoFinalBranchSecretFixScript">
+(function(){
+  const FINAL_FIX={secretVisible:false};
+  function getSecret(){
+    try{return String((window.currentUser&&window.currentUser.password)||'123456');}
+    catch(e){return '123456';}
+  }
+  function maskedSecret(){return '••••••';}
+  function secretHtml(scope){
+    const visible=FINAL_FIX.secretVisible;
+    const val=visible?getSecret():maskedSecret();
+    return `<span class="secret-value" data-secret-value>${val}</span><button type="button" class="secret-eye" onclick="toggleSecretCode()" aria-label="${visible?'إخفاء الرمز':'إظهار الرمز'}"><span class="mi">${visible?'visibility_off':'visibility'}</span></button>`;
+  }
+  window.toggleSecretCode=function(){
+    FINAL_FIX.secretVisible=!FINAL_FIX.secretVisible;
+    document.querySelectorAll('[data-secret-holder]').forEach(el=>{el.innerHTML=secretHtml();});
+  };
+  function ensureSecretBlocks(){
+    try{
+      const stats=document.querySelector('.member-stats');
+      if(stats && !document.getElementById('memberSecretStat')){
+        const div=document.createElement('div');
+        div.className='member-stat secret-stat';
+        div.id='memberSecretStat';
+        div.innerHTML=`<small>الرمز السري</small><b data-secret-holder>${secretHtml()}</b>`;
+        stats.appendChild(div);
+      }
+      const grid=document.querySelector('#profilePage .profile-grid');
+      if(grid && !document.getElementById('profileSecretBox')){
+        const box=document.createElement('div');
+        box.className='info-box secret-info';
+        box.id='profileSecretBox';
+        box.innerHTML=`<small>الرمز السري</small><b data-secret-holder>${secretHtml()}</b>`;
+        const balance=[...grid.children].find(x=>x.textContent.includes('الرصيد'));
+        if(balance) balance.after(box); else grid.appendChild(box);
+      }
+      document.querySelectorAll('[data-secret-holder]').forEach(el=>{el.innerHTML=secretHtml();});
+    }catch(e){}
+  }
+
+  function instantTop(){
+    try{
+      const old=document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior='auto';
+      document.body.style.scrollBehavior='auto';
+      window.scrollTo(0,0);
+      setTimeout(()=>{document.documentElement.style.scrollBehavior=old||'auto';document.body.style.scrollBehavior='auto';},60);
+    }catch(e){try{window.scrollTo(0,0)}catch(_){}}
+  }
+
+  function openBranchStable(id){
+    if(id==='all'){ if(typeof toast==='function')toast('اختر فرعاً محدداً لعرض المنتجات'); return; }
+    try{
+      const active=document.querySelector('.app-page.active');
+      window.branchReturnPage=(active&&active.id)||'homePage';
+      window.branchReturnScroll=window.scrollY||document.documentElement.scrollTop||0;
+      window.selectedBranch=id;
+      window.selectedCat='all';
+      if(typeof ensureBranchPage==='function') ensureBranchPage();
+      document.querySelectorAll('.app-page').forEach(p=>p.classList.remove('active'));
+      const page=document.getElementById('branchPage');
+      if(page) page.classList.add('active');
+      const nav=document.getElementById('bottomNav'); if(nav) nav.style.display='grid';
+      document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+      if(typeof renderBranchCats==='function') renderBranchCats();
+      if(typeof renderBranchProducts==='function') renderBranchProducts();
+      if(typeof refreshCartIndicators==='function') refreshCartIndicators();
+      if(typeof updateCart==='function') setTimeout(updateCart,20);
+      instantTop();
+    }catch(e){
+      try{ if(typeof go==='function')go('branchPage'); }catch(_){}
+    }
+  }
+
+  function patchBranchButtons(){
+    document.querySelectorAll('#branchesRail .branch-card').forEach(btn=>{
+      const m=(btn.getAttribute('onclick')||'').match(/selectBranch\('([^']+)'\)/);
+      if(m){ btn.setAttribute('onclick',`selectBranch('${m[1]}')`); }
+    });
+  }
+
+  window.selectBranch=function(id){openBranchStable(id)};
+
+  const oldFill=window.fillUser;
+  window.fillUser=function(){ if(typeof oldFill==='function')oldFill(); setTimeout(ensureSecretBlocks,0); };
+  const oldRenderBranches=window.renderBranches;
+  window.renderBranches=function(){ if(typeof oldRenderBranches==='function')oldRenderBranches(); setTimeout(patchBranchButtons,0); };
+  const oldGo=window.go;
+  window.go=function(id){
+    if(id==='branchPage'){
+      if(typeof oldGo==='function')oldGo(id);
+      setTimeout(instantTop,0);
+      return;
+    }
+    if(typeof oldGo==='function')oldGo(id);
+    setTimeout(ensureSecretBlocks,0);
+  };
+
+  document.addEventListener('DOMContentLoaded',()=>{ensureSecretBlocks();patchBranchButtons();});
+  window.addEventListener('load',()=>{ensureSecretBlocks();patchBranchButtons();setTimeout(ensureSecretBlocks,300);});
+  setInterval(()=>{ensureSecretBlocks();patchBranchButtons();},1200);
+})();
+</script>
