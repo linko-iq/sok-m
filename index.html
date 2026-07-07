@@ -2585,10 +2585,10 @@ body.theme-dark .admin-req-card,body.theme-dark .admin-member-box,body.theme-dar
     &lt;/div&gt;
     &lt;h1&gt;لوحة إدارة سوق المدينة الكبير&lt;/h1&gt;
     &lt;p&gt;دخول الإدارة للتحكم بالطلبات، الأعضاء، المنتجات، الفروع، الرصيد، والتقارير.&lt;/p&gt;
-    &lt;div class=&quot;field&quot;&gt;&lt;label&gt;اسم المستخدم أو اللقب&lt;/label&gt;&lt;input class=&quot;input&quot; id=&quot;loginUser&quot; autocomplete=&quot;username&quot; placeholder=&quot;اسم دخول الإدارة&quot;&gt;&lt;/div&gt;
-    &lt;div class=&quot;field&quot;&gt;&lt;label&gt;كلمة المرور&lt;/label&gt;&lt;input class=&quot;input&quot; id=&quot;loginPass&quot; type=&quot;password&quot; autocomplete=&quot;current-password&quot; placeholder=&quot;رمز دخول الإدارة&quot;&gt;&lt;/div&gt;
+    &lt;div class=&quot;field&quot;&gt;&lt;label&gt;البريد الإلكتروني للإدارة&lt;/label&gt;&lt;input class=&quot;input&quot; id=&quot;loginUser&quot; autocomplete=&quot;email&quot; inputmode=&quot;email&quot; placeholder=&quot;admin@example.com&quot;&gt;&lt;/div&gt;
+    &lt;div class=&quot;field&quot;&gt;&lt;label&gt;كلمة المرور&lt;/label&gt;&lt;input class=&quot;input&quot; id=&quot;loginPass&quot; type=&quot;password&quot; autocomplete=&quot;current-password&quot; placeholder=&quot;كلمة مرور الإدارة&quot;&gt;&lt;/div&gt;
     &lt;button class=&quot;btn full&quot; onclick=&quot;loginAdmin()&quot;&gt;دخول لوحة الإدارة&lt;/button&gt;
-    &lt;div class=&quot;hint secure-hint&quot;&gt;دخول الإدارة محمي، وسيتم تفعيله ببيانات الإدارة الرسمية عند ربط النظام.&lt;/div&gt;
+    &lt;div class=&quot;hint secure-hint&quot; id=&quot;firebaseAuthHint&quot;&gt;دخول الإدارة مربوط الآن بـ Firebase Authentication الرسمي.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/section&gt;
 &lt;div class=&quot;app&quot; id=&quot;app&quot;&gt;
@@ -2784,7 +2784,117 @@ function previewProductImageFull(){
  const src=document.getElementById(&#x27;pImg&#x27;)?.value;
  if(!src){toast(&#x27;لا توجد صورة للمعاينة&#x27;);return;}
  const w=window.open(&#x27;&#x27;,&#x27;_blank&#x27;);
- if(w){w.document.write(`&lt;html dir=&quot;rtl&quot;&gt;&lt;head&gt;&lt;title&gt;معاينة الصورة&lt;/title&gt;&lt;style&gt;body{margin:0;background:#0b1220;display:grid;place-items:center;min-height:100vh}img{max-width:96vw;max-height:96vh;object-fit:contain;background:#fff;border-radius:18px;padding:12px}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;img src=&quot;${src}&quot;&gt;&lt;/body&gt;&lt;/html&gt;`);w.document.close();}
+ if(w){w.document.write(`&lt;html dir=&quot;rtl&quot;&gt;&lt;head&gt;&lt;title&gt;معاينة الصورة&lt;/title&gt;&lt;style&gt;body{margin:0;background:#0b1220;display:grid;place-items:center;min-height:100vh}img{max-width:96vw;max-height:96vh;object-fit:contain;background:#fff;border-radius:18px;padding:12px}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;img src=&quot;${src}&quot;&gt;
+&lt;script type=&quot;module&quot; id=&quot;linkoFirebasePhase1&quot;&gt;
+  import { initializeApp } from &quot;https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js&quot;;
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from &quot;https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js&quot;;
+  import { getFirestore } from &quot;https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js&quot;;
+
+  const firebaseConfig = {
+    apiKey: &quot;AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc&quot;,
+    authDomain: &quot;souq-al-madina-al-kabeer.firebaseapp.com&quot;,
+    projectId: &quot;souq-al-madina-al-kabeer&quot;,
+    storageBucket: &quot;souq-al-madina-al-kabeer.firebasestorage.app&quot;,
+    messagingSenderId: &quot;1038784782291&quot;,
+    appId: &quot;1:1038784782291:web:c127e5ba879d5402389926&quot;
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.LINKO_FIREBASE_APP = app;
+  window.LINKO_FIREBASE_AUTH = auth;
+  window.LINKO_FIRESTORE_DB = db;
+  window.LINKO_FIREBASE_READY = true;
+  window.LINKO_CURRENT_ADMIN = null;
+
+  function setAuthHint(message, type){
+    const hint = document.getElementById(&#x27;firebaseAuthHint&#x27;) || document.querySelector(&#x27;.secure-hint&#x27;);
+    if(!hint) return;
+    hint.textContent = message;
+    hint.style.borderColor = type === &#x27;error&#x27; ? &#x27;#fecaca&#x27; : type === &#x27;ok&#x27; ? &#x27;#bbf7d0&#x27; : &#x27;#fed7aa&#x27;;
+    hint.style.background = type === &#x27;error&#x27; ? &#x27;#fef2f2&#x27; : type === &#x27;ok&#x27; ? &#x27;#ecfdf3&#x27; : &#x27;#fff7ed&#x27;;
+    hint.style.color = type === &#x27;error&#x27; ? &#x27;#991b1b&#x27; : type === &#x27;ok&#x27; ? &#x27;#087443&#x27; : &#x27;#9a3412&#x27;;
+  }
+
+  function showAdminApp(user){
+    window.LINKO_CURRENT_ADMIN = user || null;
+    try{ sessionStorage.setItem(&#x27;LINKO_ADMIN_SESSION&#x27;,&#x27;firebase&#x27;); }catch(e){}
+    const loginPage = document.getElementById(&#x27;loginPage&#x27;);
+    const appShell = document.getElementById(&#x27;app&#x27;);
+    if(loginPage) loginPage.classList.add(&#x27;hidden&#x27;);
+    if(appShell) appShell.classList.add(&#x27;show&#x27;);
+    setAuthHint(&#x27;تم التحقق من الإدارة عبر Firebase بنجاح&#x27;, &#x27;ok&#x27;);
+    if(typeof window.render === &#x27;function&#x27;) window.render();
+  }
+
+  function showAdminLogin(){
+    window.LINKO_CURRENT_ADMIN = null;
+    try{ sessionStorage.removeItem(&#x27;LINKO_ADMIN_SESSION&#x27;); }catch(e){}
+    const loginPage = document.getElementById(&#x27;loginPage&#x27;);
+    const appShell = document.getElementById(&#x27;app&#x27;);
+    if(appShell) appShell.classList.remove(&#x27;show&#x27;);
+    if(loginPage) loginPage.classList.remove(&#x27;hidden&#x27;);
+    setAuthHint(&#x27;دخول الإدارة مربوط الآن بـ Firebase Authentication الرسمي.&#x27;, &#x27;info&#x27;);
+  }
+
+  function friendlyAuthError(code){
+    const map = {
+      &#x27;auth/invalid-email&#x27;: &#x27;البريد الإلكتروني غير صحيح&#x27;,
+      &#x27;auth/missing-password&#x27;: &#x27;اكتب كلمة المرور&#x27;,
+      &#x27;auth/invalid-credential&#x27;: &#x27;بيانات الإدارة غير صحيحة&#x27;,
+      &#x27;auth/user-not-found&#x27;: &#x27;هذا البريد غير مسجل كحساب إدارة&#x27;,
+      &#x27;auth/wrong-password&#x27;: &#x27;كلمة المرور غير صحيحة&#x27;,
+      &#x27;auth/too-many-requests&#x27;: &#x27;محاولات كثيرة، انتظر قليلاً ثم حاول مرة ثانية&#x27;,
+      &#x27;auth/network-request-failed&#x27;: &#x27;تحقق من اتصال الإنترنت&#x27;
+    };
+    return map[code] || &#x27;تعذر تسجيل الدخول، تحقق من بيانات الإدارة والإنترنت&#x27;;
+  }
+
+  await setPersistence(auth, browserLocalPersistence).catch(()=&gt;{});
+
+  window.loginAdmin = async function(){
+    const email = (document.getElementById(&#x27;loginUser&#x27;)?.value || &#x27;&#x27;).trim();
+    const password = (document.getElementById(&#x27;loginPass&#x27;)?.value || &#x27;&#x27;).trim();
+    if(!email || !password){
+      if(typeof window.toast === &#x27;function&#x27;) window.toast(&#x27;أدخل البريد الإلكتروني وكلمة المرور&#x27;);
+      setAuthHint(&#x27;أكمل بيانات دخول الإدارة&#x27;, &#x27;error&#x27;);
+      return;
+    }
+    try{
+      setAuthHint(&#x27;جاري التحقق من Firebase...&#x27;, &#x27;info&#x27;);
+      await signInWithEmailAndPassword(auth, email, password);
+      if(typeof window.toast === &#x27;function&#x27;) window.toast(&#x27;تم دخول لوحة الإدارة&#x27;);
+    }catch(err){
+      const msg = friendlyAuthError(err &amp;&amp; err.code);
+      if(typeof window.toast === &#x27;function&#x27;) window.toast(msg);
+      setAuthHint(msg, &#x27;error&#x27;);
+    }
+  };
+
+  window.logoutAdmin = async function(){
+    try{ await signOut(auth); }catch(e){}
+    showAdminLogin();
+    if(typeof window.toast === &#x27;function&#x27;) window.toast(&#x27;تم تسجيل الخروج من الإدارة&#x27;);
+  };
+
+  onAuthStateChanged(auth, (user)=&gt;{
+    if(user) showAdminApp(user);
+    else showAdminLogin();
+  });
+
+  window.addEventListener(&#x27;DOMContentLoaded&#x27;, ()=&gt;{
+    const pass = document.getElementById(&#x27;loginPass&#x27;);
+    const email = document.getElementById(&#x27;loginUser&#x27;);
+    [email, pass].forEach(el=&gt;{
+      if(!el) return;
+      el.addEventListener(&#x27;keydown&#x27;, e=&gt;{ if(e.key === &#x27;Enter&#x27;) window.loginAdmin(); });
+    });
+    setAuthHint(&#x27;Firebase جاهز - أدخل بريد الإدارة وكلمة المرور&#x27;, &#x27;ok&#x27;);
+  });
+&lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;`);w.document.close();}
 }
 function saveProduct(id){let data={name:pName.value,price:+pPrice.value||0,cat:pCat.value,branch:pBranch.value,status:pStatus.value,sell:pSell.value,qty:pQty.value,badge:pBadge.value,img:pImg.value};if(!data.name){toast(&#x27;اكتب اسم المنتج&#x27;);return}if(id){Object.assign(state.products.find(x=&gt;x.id===id),data);log(&#x27;تعديل منتج&#x27;,&#x27;تم تعديل &#x27;+data.name)}else{state.products.unshift({id:Date.now(),...data});log(&#x27;إضافة منتج&#x27;,&#x27;تم إضافة &#x27;+data.name)}save();closeModal();toast(&#x27;تم حفظ المنتج&#x27;);render()}
 function toggleProduct(id){let p=state.products.find(x=&gt;x.id===id);p.status=p.status===&#x27;available&#x27;?&#x27;unavailable&#x27;:&#x27;available&#x27;;log(&#x27;تغيير حالة منتج&#x27;,&#x27;تم تغيير حالة &#x27;+p.name);save();render()}
