@@ -3002,6 +3002,83 @@ body.linko-dark .secret-info .secret-eye{background:#1e293b!important;color:#fff
 })();
 </script>
 
+
+
+<!-- ===== LINKO FIX: STABLE BRANCH RETURN POSITION - DO NOT TOUCH PRODUCTS ===== -->
+<script id="linkoStableBranchReturnFinal">
+(function(){
+  const state = { page:'homePage', scroll:0 };
+
+  function currentScroll(){
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  }
+
+  function rememberReturnPoint(){
+    const active = document.querySelector('.app-page.active');
+    state.page = (active && active.id && active.id !== 'branchPage') ? active.id : 'homePage';
+    state.scroll = currentScroll();
+  }
+
+  function activatePageWithoutJump(id){
+    document.querySelectorAll('.app-page').forEach(p=>{
+      p.classList.remove('active');
+      p.style.display = '';
+    });
+
+    const target = document.getElementById(id) || document.getElementById('homePage');
+    if(target){
+      target.style.display = '';
+      target.classList.add('active');
+    }
+
+    const bottom = document.getElementById('bottomNav');
+    if(bottom) bottom.style.display = id === 'authPage' ? 'none' : 'grid';
+
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    const map = {homePage:0, cartPage:1, ordersPage:2, notificationsPage:3, profilePage:4};
+    if(map[id] != null){
+      const navs = document.querySelectorAll('.nav-btn');
+      if(navs[map[id]]) navs[map[id]].classList.add('active');
+    }
+
+    try{
+      if(id === 'cartPage' && typeof renderCart === 'function') renderCart();
+      if(id === 'ordersPage' && typeof renderOrders === 'function') renderOrders();
+      if(id === 'notificationsPage' && typeof renderNotes === 'function') renderNotes();
+      if(id === 'profilePage' && typeof renderRequests === 'function') renderRequests();
+      if(id === 'homePage'){
+        if(typeof renderBranches === 'function') renderBranches();
+        if(typeof renderCats === 'function') renderCats();
+        if(typeof renderProducts === 'function') renderProducts();
+      }
+      if(typeof updateCart === 'function') updateCart();
+    }catch(e){}
+  }
+
+  const previousSelectBranch = window.selectBranch;
+  window.selectBranch = function(id){
+    if(id && id !== 'all') rememberReturnPoint();
+    if(typeof previousSelectBranch === 'function') return previousSelectBranch.apply(this, arguments);
+  };
+
+  window.closeBranchPage = function(){
+    const targetPage = state.page || 'homePage';
+    const targetScroll = Number(state.scroll || 0);
+
+    activatePageWithoutJump(targetPage);
+
+    // Restore exactly where the user opened the branch from, after layout finishes.
+    requestAnimationFrame(()=>{
+      window.scrollTo(0, targetScroll);
+      requestAnimationFrame(()=>{
+        window.scrollTo(0, targetScroll);
+        setTimeout(()=>window.scrollTo(0, targetScroll), 80);
+      });
+    });
+  };
+})();
+</script>
+
 </body>
 </html>
 <!-- ===== LINKO SAFE PATCH: home delivery, assistant stability, instant cart feedback, clearer chat ===== -->
