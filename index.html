@@ -2648,12 +2648,12 @@ function normalizeState(data){
 function loadState(){try{return normalizeState(JSON.parse(localStorage.getItem(LS))||seed())}catch(e){return normalizeState(seed())}}
 function cleanOfficialState(data){
  data=data||seed();
- const isRemovedPhone=v=>/^07(700000000|800000000|711111111|822222222|712345678)$/.test(String(v||''));
- const isRemovedText=v=>/تجريبي|للتجربة|طلب اشتراك تجريبي/.test(String(v||''));
- data.requests=(data.requests||[]).filter(x=>!isRemovedPhone(x.phone)&&!isRemovedText(x.name)&&!isRemovedText(x.area));
- data.members=(data.members||[]).filter(x=>!isRemovedPhone(x.phone)&&!['محمد كريم','زينب أحمد'].includes(String(x.name||'')));
- data.adminMessages=(data.adminMessages||[]).filter(x=>!isRemovedText(x.details)&&!isRemovedText(x.memberName)&&!isRemovedText(x.title));
- data.logs=(data.logs||[]).filter(x=>!isRemovedText(x.details));
+ const isRemovedPhone=v=&gt;/^07(700000000|800000000|711111111|822222222|712345678)$/.test(String(v||&#x27;&#x27;));
+ const isRemovedText=v=&gt;/تجريبي|للتجربة|طلب اشتراك تجريبي/.test(String(v||&#x27;&#x27;));
+ data.requests=(data.requests||[]).filter(x=&gt;!isRemovedPhone(x.phone)&amp;&amp;!isRemovedText(x.name)&amp;&amp;!isRemovedText(x.area));
+ data.members=(data.members||[]).filter(x=&gt;!isRemovedPhone(x.phone)&amp;&amp;![&#x27;محمد كريم&#x27;,&#x27;زينب أحمد&#x27;].includes(String(x.name||&#x27;&#x27;)));
+ data.adminMessages=(data.adminMessages||[]).filter(x=&gt;!isRemovedText(x.details)&amp;&amp;!isRemovedText(x.memberName)&amp;&amp;!isRemovedText(x.title));
+ data.logs=(data.logs||[]).filter(x=&gt;!isRemovedText(x.details));
  return data;
 }
 
@@ -2786,6 +2786,73 @@ function previewProductImageFull(){
  const w=window.open(&#x27;&#x27;,&#x27;_blank&#x27;);
  if(w){w.document.write(`&lt;html dir=&quot;rtl&quot;&gt;&lt;head&gt;&lt;title&gt;معاينة الصورة&lt;/title&gt;&lt;style&gt;body{margin:0;background:#0b1220;display:grid;place-items:center;min-height:100vh}img{max-width:96vw;max-height:96vh;object-fit:contain;background:#fff;border-radius:18px;padding:12px}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;img src=&quot;${src}&quot;&gt;
 
+
+&lt;script type=&quot;module&quot; id=&quot;linkoFirebasePhase2Subscriptions&quot;&gt;
+  import { initializeApp } from &quot;https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js&quot;;
+  import { getFirestore, collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from &quot;https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js&quot;;
+  const firebaseConfig = {
+    apiKey: &quot;AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc&quot;,
+    authDomain: &quot;souq-al-madina-al-kabeer.firebaseapp.com&quot;,
+    projectId: &quot;souq-al-madina-al-kabeer&quot;,
+    storageBucket: &quot;souq-al-madina-al-kabeer.firebasestorage.app&quot;,
+    messagingSenderId: &quot;1038784782291&quot;,
+    appId: &quot;1:1038784782291:web:c127e5ba879d5402389926&quot;
+  };
+  const app = window.LINKO_FIREBASE_APP || initializeApp(firebaseConfig, &#x27;phase2-admin&#x27;);
+  const db = window.LINKO_FIRESTORE_DB || getFirestore(app);
+  const toastSafe = (m)=&gt; typeof window.toast === &#x27;function&#x27; ? window.toast(m) : console.log(m);
+  function normalizeSnap(snap){
+    return snap.docs.map(d=&gt;{
+      const x=d.data()||{};
+      return {id:d.id,...x,createdAtMs:x.createdAt?.toMillis?x.createdAt.toMillis():(x.createdAtMs||0)};
+    });
+  }
+  onSnapshot(query(collection(db,&#x27;subscriptionRequests&#x27;),orderBy(&#x27;createdAt&#x27;,&#x27;desc&#x27;)), snap=&gt;{
+    window.__linkoSubscriptionRequests=normalizeSnap(snap);
+    if(typeof window.render===&#x27;function&#x27;) window.render();
+  }, err=&gt;{
+    toastSafe(&#x27;تعذر قراءة طلبات الاشتراك: &#x27;+(err.code||err.message));
+  });
+  onSnapshot(query(collection(db,&#x27;members&#x27;),orderBy(&#x27;createdAt&#x27;,&#x27;desc&#x27;)), snap=&gt;{
+    window.__linkoMembers=normalizeSnap(snap);
+    if(typeof window.render===&#x27;function&#x27; &amp;&amp; (window.active===&#x27;members&#x27;||window.active===&#x27;dashboard&#x27;)) window.render();
+  }, ()=&gt;{});
+  window.approveReq = async function(id){
+    const r=(window.__linkoSubscriptionRequests||[]).find(x=&gt;String(x.id)===String(id));
+    if(!r){toastSafe(&#x27;لم يتم العثور على الطلب&#x27;);return;}
+    try{
+      await setDoc(doc(db,&#x27;members&#x27;,id),{
+        name:r.name||&#x27;&#x27;, username:r.name||&#x27;&#x27;, password:r.password||&#x27;&#x27;, phone:r.phone||&#x27;&#x27;, address:r.address||&#x27;&#x27;, area:r.address||&#x27;&#x27;,
+        balance:0, status:&#x27;active&#x27;, sourceRequestId:id, createdAt:serverTimestamp(), createdAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)
+      },{merge:true});
+      await updateDoc(doc(db,&#x27;subscriptionRequests&#x27;,id),{status:&#x27;approved&#x27;,approvedAt:serverTimestamp(),approvedAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)});
+      toastSafe(&#x27;تمت الموافقة ونقل العضو&#x27;);
+    }catch(err){toastSafe(&#x27;فشل قبول الطلب: &#x27;+(err.code||err.message));}
+  };
+  window.rejectReq = async function(id){
+    try{await updateDoc(doc(db,&#x27;subscriptionRequests&#x27;,id),{status:&#x27;rejected&#x27;,rejectedAt:serverTimestamp(),rejectedAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)});toastSafe(&#x27;تم رفض الطلب&#x27;);}
+    catch(err){toastSafe(&#x27;فشل رفض الطلب: &#x27;+(err.code||err.message));}
+  };
+  window.deleteReq = async function(id){
+    if(!confirm(&#x27;تأكيد حذف الطلب؟&#x27;)) return;
+    try{await deleteDoc(doc(db,&#x27;subscriptionRequests&#x27;,id));toastSafe(&#x27;تم حذف الطلب&#x27;);}
+    catch(err){toastSafe(&#x27;فشل حذف الطلب: &#x27;+(err.code||err.message));}
+  };
+  window.clearRejected = async function(){
+    const rejected=(window.__linkoSubscriptionRequests||[]).filter(x=&gt;x.status===&#x27;rejected&#x27;);
+    if(!rejected.length){toastSafe(&#x27;لا توجد طلبات مرفوضة&#x27;);return;}
+    if(!confirm(&#x27;تأكيد حذف جميع الطلبات المرفوضة؟&#x27;)) return;
+    for(const r of rejected) await deleteDoc(doc(db,&#x27;subscriptionRequests&#x27;,r.id));
+    toastSafe(&#x27;تم حذف المرفوضين&#x27;);
+  };
+  window.clearAllSubscriptionRequests = async function(){
+    const list=(window.__linkoSubscriptionRequests||[]);
+    if(!list.length){toastSafe(&#x27;لا توجد طلبات&#x27;);return;}
+    if(!confirm(&#x27;تأكيد حذف جميع طلبات الاشتراك؟&#x27;)) return;
+    for(const r of list) await deleteDoc(doc(db,&#x27;subscriptionRequests&#x27;,r.id));
+    toastSafe(&#x27;تم حذف جميع الطلبات&#x27;);
+  };
+&lt;/script&gt;
 &lt;/body&gt;&lt;/html&gt;`);w.document.close();}
 }
 function saveProduct(id){let data={name:pName.value,price:+pPrice.value||0,cat:pCat.value,branch:pBranch.value,status:pStatus.value,sell:pSell.value,qty:pQty.value,badge:pBadge.value,img:pImg.value};if(!data.name){toast(&#x27;اكتب اسم المنتج&#x27;);return}if(id){Object.assign(state.products.find(x=&gt;x.id===id),data);log(&#x27;تعديل منتج&#x27;,&#x27;تم تعديل &#x27;+data.name)}else{state.products.unshift({id:Date.now(),...data});log(&#x27;إضافة منتج&#x27;,&#x27;تم إضافة &#x27;+data.name)}save();closeModal();toast(&#x27;تم حفظ المنتج&#x27;);render()}
@@ -2845,9 +2912,38 @@ function removeTrashItem(id){if(confirm(&#x27;تأكيد الحذف النهائ
 function emptyTrash(){if(confirm(&#x27;تأكيد حذف جميع تفاصيل سلة المحذوفات نهائياً؟&#x27;)){state.trash=[];save();toast(&#x27;تم حذف جميع تفاصيل السلة&#x27;);render();}}
 function settings(){return `&lt;div class=&quot;panel&quot;&gt;&lt;div class=&quot;panel-head&quot;&gt;&lt;div&gt;&lt;h2&gt;إعدادات النظام&lt;/h2&gt;&lt;p&gt;هوية النظام والواتساب والعملة.&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;form-grid&quot;&gt;&lt;div class=&quot;field&quot;&gt;&lt;label&gt;اسم السوق&lt;/label&gt;&lt;input class=&quot;input&quot; id=&quot;sMarket&quot; value=&quot;${state.settings.market}&quot;&gt;&lt;/div&gt;&lt;div class=&quot;field&quot;&gt;&lt;label&gt;رقم واتساب الإدارة&lt;/label&gt;&lt;input class=&quot;input&quot; id=&quot;sWhats&quot; value=&quot;${state.settings.whatsapp}&quot;&gt;&lt;/div&gt;&lt;div class=&quot;field&quot;&gt;&lt;label&gt;العملة&lt;/label&gt;&lt;input class=&quot;input&quot; id=&quot;sCurrency&quot; value=&quot;${state.settings.currency}&quot;&gt;&lt;/div&gt;&lt;button class=&quot;btn wide&quot; onclick=&quot;saveSettings()&quot;&gt;حفظ الإعدادات&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;`}
 function saveSettings(){state.settings={market:sMarket.value,whatsapp:sWhats.value,currency:sCurrency.value};log(&#x27;تعديل إعدادات&#x27;,&#x27;تم حفظ إعدادات النظام&#x27;);save();toast(&#x27;تم حفظ الإعدادات&#x27;);render()}
-function resetData(){toast('إعادة التعيين معطلة في النسخة الرسمية')}
+function resetData(){toast(&#x27;إعادة التعيين معطلة في النسخة الرسمية&#x27;)}
 function openModal(t,b){$(&#x27;modalTitle&#x27;).textContent=t;$(&#x27;modalBody&#x27;).innerHTML=b;$(&#x27;modal&#x27;).classList.add(&#x27;show&#x27;)}
 function closeModal(){$(&#x27;modal&#x27;).classList.remove(&#x27;show&#x27;)}
+
+// ===== LINKO PHASE 2: fast admin renderer + subscription view =====
+function dashboard(){
+  const reqs=(window.__linkoSubscriptionRequests||state.requests||[]).filter(x=&gt;x.status===&#x27;pending&#x27;).length;
+  const membersCount=(window.__linkoMembers||state.members||[]).length;
+  return `&lt;div class=&quot;kpis&quot;&gt;&lt;div class=&quot;kpi&quot; data-icon=&quot;assignment_add&quot;&gt;&lt;small&gt;طلبات الاشتراك&lt;/small&gt;&lt;b&gt;${reqs}&lt;/b&gt;&lt;/div&gt;&lt;div class=&quot;kpi&quot; data-icon=&quot;groups&quot;&gt;&lt;small&gt;الأعضاء&lt;/small&gt;&lt;b&gt;${membersCount}&lt;/b&gt;&lt;/div&gt;&lt;div class=&quot;kpi&quot; data-icon=&quot;shopping_cart&quot;&gt;&lt;small&gt;المنتجات&lt;/small&gt;&lt;b&gt;${(state.products||[]).length}&lt;/b&gt;&lt;/div&gt;&lt;div class=&quot;kpi&quot; data-icon=&quot;storefront&quot;&gt;&lt;small&gt;الفروع&lt;/small&gt;&lt;b&gt;${(state.branches||[]).length}&lt;/b&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;panel&quot;&gt;&lt;div class=&quot;panel-head&quot;&gt;&lt;div&gt;&lt;h2&gt;المرحلة الثانية&lt;/h2&gt;&lt;p&gt;تم تفعيل طلبات الاشتراك عبر Firestore، وبقية الأقسام تبقى حسب المراحل القادمة.&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;`;
+}
+function subscriptionList(){return (window.__linkoSubscriptionRequests||state.requests||[]).slice().sort((a,b)=&gt;(b.createdAtMs||0)-(a.createdAtMs||0));}
+function subscriptions(){
+ const list=subscriptionList();
+ const pending=list.filter(x=&gt;x.status===&#x27;pending&#x27;);
+ const rejected=list.filter(x=&gt;x.status===&#x27;rejected&#x27;);
+ return `&lt;div class=&quot;panel&quot;&gt;&lt;div class=&quot;panel-head&quot;&gt;&lt;div&gt;&lt;h2&gt;طلبات الاشتراك&lt;/h2&gt;&lt;p&gt;الطلبات تصل من صفحة الأعضاء وتحفظ مباشرة في Firestore.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;actions-row&quot;&gt;&lt;button class=&quot;btn secondary mini&quot; onclick=&quot;render()&quot;&gt;تحديث&lt;/button&gt;&lt;button class=&quot;btn danger mini&quot; onclick=&quot;clearRejected()&quot;&gt;حذف المرفوضين&lt;/button&gt;&lt;button class=&quot;btn danger mini&quot; onclick=&quot;clearAllSubscriptionRequests()&quot;&gt;حذف الجميع&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;sub-requests-grid&quot;&gt;${list.length?list.map(subscriptionCard).join(&#x27;&#x27;):&#x27;&lt;div class=&quot;empty&quot;&gt;لا توجد طلبات اشتراك حالياً&lt;/div&gt;&#x27;}&lt;/div&gt;&lt;/div&gt;`;
+}
+function subscriptionCard(r){
+ const st=r.status||&#x27;pending&#x27;;
+ const label=st===&#x27;approved&#x27;?&#x27;مقبول&#x27;:st===&#x27;rejected&#x27;?&#x27;مرفوض&#x27;:&#x27;بانتظار&#x27;;
+ const cls=st===&#x27;approved&#x27;?&#x27;ok&#x27;:st===&#x27;rejected&#x27;?&#x27;bad&#x27;:&#x27;wait&#x27;;
+ return `&lt;div class=&quot;admin-req-card&quot;&gt;&lt;div class=&quot;member-admin-head&quot;&gt;&lt;div class=&quot;member-admin-avatar&quot;&gt;${(r.name||&#x27;?&#x27;).slice(0,1)}&lt;/div&gt;&lt;div class=&quot;member-admin-info&quot;&gt;&lt;h3&gt;${r.name||&#x27;بدون اسم&#x27;} &lt;span class=&quot;status ${cls}&quot;&gt;${label}&lt;/span&gt;&lt;/h3&gt;&lt;p&gt;${r.phone||&#x27;-&#x27;}&lt;br&gt;${r.address||r.area||&#x27;-&#x27;}&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;member-admin-meta&quot;&gt;&lt;div class=&quot;member-admin-pill&quot;&gt;&lt;small&gt;تاريخ الطلب&lt;/small&gt;${r.createdAtText||r.created||&#x27;-&#x27;}&lt;/div&gt;&lt;div class=&quot;member-admin-pill&quot;&gt;&lt;small&gt;الحالة&lt;/small&gt;${label}&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;actions-row&quot;&gt;&lt;button class=&quot;btn mini&quot; ${st!==&#x27;pending&#x27;?&#x27;disabled&#x27;:&#x27;&#x27;} onclick=&quot;approveReq(&#x27;${r.id}&#x27;)&quot;&gt;موافقة&lt;/button&gt;&lt;button class=&quot;btn warn mini&quot; ${st!==&#x27;pending&#x27;?&#x27;disabled&#x27;:&#x27;&#x27;} onclick=&quot;rejectReq(&#x27;${r.id}&#x27;)&quot;&gt;رفض&lt;/button&gt;&lt;button class=&quot;btn danger mini&quot; onclick=&quot;deleteReq(&#x27;${r.id}&#x27;)&quot;&gt;حذف&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;`;
+}
+function render(){
+  const viewMap={dashboard:dashboard,subscriptions:subscriptions,members:members,products:products,branches:branches,requests:requestsInbox,reports:reports,notifications:notifications,logs:logs,settings:settings,trash:trashBin};
+  buildNav();
+  const fn=viewMap[active]||dashboard;
+  const mainEl=document.getElementById(&#x27;main&#x27;);
+  if(mainEl) mainEl.innerHTML=fn();
+  if(active===&#x27;notifications&#x27;) setTimeout(renderNotificationTargets,30);
+}
+
 initTheme();buildNav();render();
 &lt;/script&gt;
 
@@ -2963,6 +3059,73 @@ initTheme();buildNav();render();
     if(pass){ pass.setAttribute(&#x27;autocomplete&#x27;, &#x27;current-password&#x27;); }
     setAuthHint(&#x27;Firebase جاهز - أدخل بريد الإدارة وكلمة المرور&#x27;, &#x27;ok&#x27;);
   });
+&lt;/script&gt;
+
+&lt;script type=&quot;module&quot; id=&quot;linkoFirebasePhase2Subscriptions&quot;&gt;
+  import { initializeApp } from &quot;https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js&quot;;
+  import { getFirestore, collection, query, orderBy, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from &quot;https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js&quot;;
+  const firebaseConfig = {
+    apiKey: &quot;AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc&quot;,
+    authDomain: &quot;souq-al-madina-al-kabeer.firebaseapp.com&quot;,
+    projectId: &quot;souq-al-madina-al-kabeer&quot;,
+    storageBucket: &quot;souq-al-madina-al-kabeer.firebasestorage.app&quot;,
+    messagingSenderId: &quot;1038784782291&quot;,
+    appId: &quot;1:1038784782291:web:c127e5ba879d5402389926&quot;
+  };
+  const app = window.LINKO_FIREBASE_APP || initializeApp(firebaseConfig, &#x27;phase2-admin&#x27;);
+  const db = window.LINKO_FIRESTORE_DB || getFirestore(app);
+  const toastSafe = (m)=&gt; typeof window.toast === &#x27;function&#x27; ? window.toast(m) : console.log(m);
+  function normalizeSnap(snap){
+    return snap.docs.map(d=&gt;{
+      const x=d.data()||{};
+      return {id:d.id,...x,createdAtMs:x.createdAt?.toMillis?x.createdAt.toMillis():(x.createdAtMs||0)};
+    });
+  }
+  onSnapshot(query(collection(db,&#x27;subscriptionRequests&#x27;),orderBy(&#x27;createdAt&#x27;,&#x27;desc&#x27;)), snap=&gt;{
+    window.__linkoSubscriptionRequests=normalizeSnap(snap);
+    if(typeof window.render===&#x27;function&#x27;) window.render();
+  }, err=&gt;{
+    toastSafe(&#x27;تعذر قراءة طلبات الاشتراك: &#x27;+(err.code||err.message));
+  });
+  onSnapshot(query(collection(db,&#x27;members&#x27;),orderBy(&#x27;createdAt&#x27;,&#x27;desc&#x27;)), snap=&gt;{
+    window.__linkoMembers=normalizeSnap(snap);
+    if(typeof window.render===&#x27;function&#x27; &amp;&amp; (window.active===&#x27;members&#x27;||window.active===&#x27;dashboard&#x27;)) window.render();
+  }, ()=&gt;{});
+  window.approveReq = async function(id){
+    const r=(window.__linkoSubscriptionRequests||[]).find(x=&gt;String(x.id)===String(id));
+    if(!r){toastSafe(&#x27;لم يتم العثور على الطلب&#x27;);return;}
+    try{
+      await setDoc(doc(db,&#x27;members&#x27;,id),{
+        name:r.name||&#x27;&#x27;, username:r.name||&#x27;&#x27;, password:r.password||&#x27;&#x27;, phone:r.phone||&#x27;&#x27;, address:r.address||&#x27;&#x27;, area:r.address||&#x27;&#x27;,
+        balance:0, status:&#x27;active&#x27;, sourceRequestId:id, createdAt:serverTimestamp(), createdAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)
+      },{merge:true});
+      await updateDoc(doc(db,&#x27;subscriptionRequests&#x27;,id),{status:&#x27;approved&#x27;,approvedAt:serverTimestamp(),approvedAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)});
+      toastSafe(&#x27;تمت الموافقة ونقل العضو&#x27;);
+    }catch(err){toastSafe(&#x27;فشل قبول الطلب: &#x27;+(err.code||err.message));}
+  };
+  window.rejectReq = async function(id){
+    try{await updateDoc(doc(db,&#x27;subscriptionRequests&#x27;,id),{status:&#x27;rejected&#x27;,rejectedAt:serverTimestamp(),rejectedAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)});toastSafe(&#x27;تم رفض الطلب&#x27;);}
+    catch(err){toastSafe(&#x27;فشل رفض الطلب: &#x27;+(err.code||err.message));}
+  };
+  window.deleteReq = async function(id){
+    if(!confirm(&#x27;تأكيد حذف الطلب؟&#x27;)) return;
+    try{await deleteDoc(doc(db,&#x27;subscriptionRequests&#x27;,id));toastSafe(&#x27;تم حذف الطلب&#x27;);}
+    catch(err){toastSafe(&#x27;فشل حذف الطلب: &#x27;+(err.code||err.message));}
+  };
+  window.clearRejected = async function(){
+    const rejected=(window.__linkoSubscriptionRequests||[]).filter(x=&gt;x.status===&#x27;rejected&#x27;);
+    if(!rejected.length){toastSafe(&#x27;لا توجد طلبات مرفوضة&#x27;);return;}
+    if(!confirm(&#x27;تأكيد حذف جميع الطلبات المرفوضة؟&#x27;)) return;
+    for(const r of rejected) await deleteDoc(doc(db,&#x27;subscriptionRequests&#x27;,r.id));
+    toastSafe(&#x27;تم حذف المرفوضين&#x27;);
+  };
+  window.clearAllSubscriptionRequests = async function(){
+    const list=(window.__linkoSubscriptionRequests||[]);
+    if(!list.length){toastSafe(&#x27;لا توجد طلبات&#x27;);return;}
+    if(!confirm(&#x27;تأكيد حذف جميع طلبات الاشتراك؟&#x27;)) return;
+    for(const r of list) await deleteDoc(doc(db,&#x27;subscriptionRequests&#x27;,r.id));
+    toastSafe(&#x27;تم حذف جميع الطلبات&#x27;);
+  };
 &lt;/script&gt;
 &lt;/body&gt;
 &lt;/html&gt;
@@ -3662,6 +3825,63 @@ body.linko-dark .branch-card::before{opacity:.82!important}
   window.addEventListener('load',function(){cleanProductionArtifacts();productionViewportFix();});
   window.addEventListener('resize',productionViewportFix,{passive:true});
 })();
+</script>
+
+
+<script type="module" id="linkoPhase2PublicSubscriptions">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc",
+    authDomain: "souq-al-madina-al-kabeer.firebaseapp.com",
+    projectId: "souq-al-madina-al-kabeer",
+    storageBucket: "souq-al-madina-al-kabeer.firebasestorage.app",
+    messagingSenderId: "1038784782291",
+    appId: "1:1038784782291:web:c127e5ba879d5402389926"
+  };
+  const app = initializeApp(firebaseConfig, 'phase2-public');
+  const db = getFirestore(app);
+  window.LINKO_PUBLIC_FIRESTORE_DB = db;
+  function safeToast(m){ if(typeof window.toast==='function') window.toast(m); else alert(m); }
+  function safeRenderAvatar(el,data){ if(typeof window.renderAvatarBox==='function') window.renderAvatarBox(el,data||''); }
+  window.register = async function(e){
+    e.preventDefault();
+    const fullName=(window.regName?.value||'').trim();
+    const password=(window.regPassword?.value||'').trim();
+    const phone=(window.regPhone?.value||'').trim();
+    const address=(window.regAddress?.value||'').trim();
+    if(!fullName||!password||!phone||!address){safeToast('أكمل بيانات الاشتراك أولاً');return;}
+    try{
+      await addDoc(collection(db,'subscriptionRequests'),{
+        name:fullName,password,phone,address,status:'pending',createdAt:serverTimestamp(),createdAtText:new Date().toLocaleString('ar-IQ')
+      });
+      e.target.reset();
+      window.pendingAvatarData='';
+      safeRenderAvatar(window.regAvatarPreview,'');
+      if(typeof window.switchAuth==='function') window.switchAuth('login');
+      safeToast('تم إرسال طلب الاشتراك للإدارة، انتظر الموافقة ثم ادخل بالاسم والرمز');
+    }catch(err){
+      safeToast('تعذر إرسال الطلب: '+(err.code||err.message));
+    }
+  };
+  window.login = async function(e){
+    e.preventDefault();
+    const fullName=(window.loginUsername?.value||'').trim();
+    const password=(window.loginPassword?.value||'').trim();
+    if(!fullName||!password){safeToast('أدخل الاسم الكامل والرمز');return;}
+    try{
+      const snap=await getDocs(query(collection(db,'members'),where('name','==',fullName)));
+      let found=null;
+      snap.forEach(d=>{const x=d.data()||{}; if(String(x.password||'')===password && String(x.status||'')==='active') found={id:d.id,...x};});
+      if(!found){safeToast('الاسم الكامل أو الرمز غير صحيح أو لم تتم الموافقة بعد');return;}
+      window.currentUser={name:found.name,phone:found.phone,address:found.address||found.area||'',balance:found.balance||0,status:found.status,avatar:''};
+      if(typeof window.fillUser==='function') window.fillUser();
+      if(typeof window.go==='function') window.go('homePage');
+      safeToast('تم تسجيل الدخول بنجاح');
+    }catch(err){
+      safeToast('تعذر تسجيل الدخول: '+(err.code||err.message));
+    }
+  };
 </script>
 
 </body>
