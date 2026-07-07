@@ -2350,7 +2350,6 @@ body:not(.linko-dark) #branchPage.linko-premium-mode #branchPageSub{
   #linkoAdminFrame{width:100%;height:100%;border:0;background:#fff;display:block}
   @media(max-width:620px){.linko-admin-entry{top:10px;left:10px;min-height:42px;padding:7px 12px;font-size:13px}.linko-admin-shell{padding:0}.linko-admin-frame-card{border-radius:0}.linko-admin-title{display:none}.linko-admin-frame-top{top:8px;left:8px;right:8px}}
 </style>
-<button class="linko-admin-entry" type="button" onclick="linkoOpenAdmin()">⚙️ دخول الإدارة</button>
 <div class="linko-admin-shell" id="linkoAdminShell" aria-hidden="true">
   <div class="linko-admin-frame-card">
     <div class="linko-admin-frame-top">
@@ -2799,15 +2798,9 @@ initTheme();buildNav();render();
 
 <!-- ===== LINKO PATCH: admin visibility + premium splash/login intro ===== -->
 <style id="linkoDevGateAndSplashPatch">
-  /* زر دخول الإدارة يظهر فقط في بوابة دخول الأعضاء */
+  /* زر دخول الإدارة مخفي نهائياً: الدخول بثلاث ضغطات سريعة على الشعار */
   .linko-admin-entry{display:none!important}
-  body.linko-auth-visible .linko-admin-entry{
-    display:inline-flex!important;
-    position:fixed!important;
-    top:calc(env(safe-area-inset-top,0px) + 14px)!important;
-    left:14px!important;
-    z-index:9998!important;
-  }
+  body.linko-auth-visible .linko-admin-entry{display:none!important}
 
   /* زر الرجوع الثابت داخل نافذة الإدارة ملغي حتى لا يبقى فوق اللوحة */
   .linko-admin-frame-top{display:none!important}
@@ -2925,6 +2918,26 @@ initTheme();buildNav();render();
   }
   const oldOpen=window.linkoOpenAdmin;
   window.linkoOpenAdmin=function(){ if(typeof oldOpen==='function') oldOpen(); setTimeout(injectAdminBackButton,150); setTimeout(injectAdminBackButton,700); };
+
+  /* دخول الإدارة السري: 3 ضغطات عادية وسريعة على الشعار بدون ضغط مطول */
+  let linkoSecretLogoClicks=0;
+  let linkoSecretLogoTimer=null;
+  function isLogoTarget(target){
+    return !!(target && target.closest && target.closest('.brand-logo,.brand-mini,.logo-stage'));
+  }
+  document.addEventListener('click',function(e){
+    if(!isLogoTarget(e.target)) return;
+    if(document.getElementById('linkoAdminShell')?.classList.contains('show')) return;
+    linkoSecretLogoClicks++;
+    clearTimeout(linkoSecretLogoTimer);
+    linkoSecretLogoTimer=setTimeout(function(){linkoSecretLogoClicks=0;},900);
+    if(linkoSecretLogoClicks>=3){
+      linkoSecretLogoClicks=0;
+      clearTimeout(linkoSecretLogoTimer);
+      if(typeof window.linkoOpenAdmin==='function') window.linkoOpenAdmin();
+    }
+  },true);
+
   window.addEventListener('load',()=>{syncAdminEntry();setTimeout(syncAdminEntry,500);setInterval(()=>{syncAdminEntry();injectAdminBackButton();},1000)});
   document.addEventListener('DOMContentLoaded',syncAdminEntry);
 })();
