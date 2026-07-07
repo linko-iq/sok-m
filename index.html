@@ -3740,7 +3740,7 @@ body.linko-dark .branch-card::before{opacity:.82!important}
     messagingSenderId: "1038784782291",
     appId: "1:1038784782291:web:c127e5ba879d5402389926"
   };
-  const COL_REQUESTS = 'members'; // طلبات الاشتراك تُحفظ مؤقتاً داخل members بحالة pending مثل النسخة المعتمدة
+  const COL_REQUESTS = 'subscriptionRequests'; // الاسم الرسمي الثابت لطلبات الاشتراك
   const COL_MEMBERS = 'members';
 
   function bootFirebase(){
@@ -3976,7 +3976,7 @@ body.linko-dark .branch-card::before{opacity:.82!important}
           });
           if(r.firebaseId){ await db.collection(COL_REQUESTS).doc(String(r.firebaseId)).delete(); }
           cw.state.requests = (cw.state.requests || []).filter(x => String(x.id) !== String(id) && String(x.firebaseId) !== String(id));
-          try{ cw.log && cw.log('موافقة على عضو','تم قبول طلب '+r.name+' وإنشاء حساب Authentication ونقله إلى Firestore / members'); }catch(_e){}
+          try{ cw.log && cw.log('موافقة على عضو','تم قبول طلب '+r.name+' وإنشاء حساب Authentication ونقله من subscriptionRequests إلى members'); }catch(_e){}
           try{ cw.toast && cw.toast('تمت الموافقة وإنشاء حساب العضو'); }catch(_e){}
           try{ cw.render && cw.render(); }catch(_e){}
         }catch(err){ console.error('LINKO approve Firestore error',err); try{cw.toast(firebaseErrorText(err));}catch(_e){} }
@@ -4015,7 +4015,7 @@ body.linko-dark .branch-card::before{opacity:.82!important}
         const members = [];
         snapshot.forEach(function(docSnap){
           const raw = docSnap.data() || {};
-          if(raw.status && raw.status !== 'active') return; // لا نعرض طلبات الاشتراك pending داخل قائمة الأعضاء
+          if(raw.status && raw.status !== 'active') return; // قائمة الأعضاء تقرأ فقط من members، وطلبات الاشتراك منفصلة في subscriptionRequests
           const m = memberToMainShape(docSnap.id, raw);
           members.push({
             id: m.firebaseId || docSnap.id,
