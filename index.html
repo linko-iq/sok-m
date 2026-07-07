@@ -3110,6 +3110,131 @@ body.linko-dark .secret-info .secret-eye{background:#1e293b!important;color:#fff
 })();
 </script>
 
+
+
+<!-- ===== LINKO FINAL PATCH: readable LINKO branch + soft animated branch border ===== -->
+<style id="linkoBranchGlowReadableFinalStyle">
+/* إضاءة خفيفة متحركة على إطار كل الفروع بدون إزعاج العين */
+.branch-card{
+  position:relative!important;
+  overflow:hidden!important;
+  border:1px solid rgba(203,213,225,.95)!important;
+  box-shadow:0 10px 24px rgba(15,23,42,.08)!important;
+}
+.branch-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  padding:2px;
+  background:linear-gradient(120deg,
+    rgba(246,182,74,.08),
+    rgba(246,182,74,.62),
+    rgba(16,185,129,.18),
+    rgba(246,182,74,.08));
+  background-size:260% 260%;
+  animation:linkoBranchBorderGlow 5.8s linear infinite;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  pointer-events:none;
+  opacity:.78;
+  z-index:4;
+}
+@keyframes linkoBranchBorderGlow{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+body.linko-dark .branch-card::before{opacity:.55}
+
+/* فرع LINKO: توضيح الاسم والتفاصيل في الوضع النهاري */
+.branch-card.linko-branch-card,
+button.branch-card[data-branch="linko"]{
+  background:linear-gradient(160deg,#0b1220 0%,#101827 58%,#20180b 100%)!important;
+  border:1px solid rgba(246,182,74,.82)!important;
+  box-shadow:0 14px 34px rgba(15,23,42,.22),0 0 0 1px rgba(246,182,74,.18)!important;
+  color:#fff!important;
+}
+.branch-card.linko-branch-card .branch-img,
+button.branch-card[data-branch="linko"] .branch-img{
+  background:radial-gradient(circle at center,rgba(246,182,74,.24),rgba(17,24,39,.95) 56%)!important;
+  color:#ffd978!important;
+}
+.branch-card.linko-branch-card .branch-img .mi,
+button.branch-card[data-branch="linko"] .branch-img .mi{
+  color:#ffd978!important;
+  text-shadow:0 0 18px rgba(246,182,74,.55)!important;
+}
+.branch-card.linko-branch-card h3,
+button.branch-card[data-branch="linko"] h3{
+  color:#ffffff!important;
+  text-shadow:0 2px 10px rgba(0,0,0,.75),0 0 16px rgba(246,182,74,.28)!important;
+  font-weight:900!important;
+  letter-spacing:.1px!important;
+}
+.branch-card.linko-branch-card small,
+button.branch-card[data-branch="linko"] small{
+  color:#ffe38a!important;
+  text-shadow:0 2px 9px rgba(0,0,0,.75)!important;
+  font-weight:900!important;
+}
+.branch-card.linko-branch-card::after,
+button.branch-card[data-branch="linko"]::after{
+  content:"";
+  position:absolute;
+  inset:auto 0 0 0;
+  height:46%;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.42));
+  pointer-events:none;
+  z-index:1;
+}
+.branch-card.linko-branch-card .branch-img,
+.branch-card.linko-branch-card h3,
+.branch-card.linko-branch-card small,
+button.branch-card[data-branch="linko"] .branch-img,
+button.branch-card[data-branch="linko"] h3,
+button.branch-card[data-branch="linko"] small{
+  position:relative!important;
+  z-index:3!important;
+}
+</style>
+<script id="linkoBranchGlowReadableFinalScript">
+(function(){
+  function fixLinkoBranch(){
+    try{
+      if(Array.isArray(window.branches)){
+        const b=window.branches.find(x=>String(x.id)==='linko');
+        if(b){
+          b.name='LINKO للتصاميم';
+          b.icon='workspace_premium';
+          if(!b.count && Array.isArray(window.LINKO_SERVICES)) b.count=window.LINKO_SERVICES.length;
+        }
+      }
+      document.querySelectorAll('.branch-card').forEach(card=>{
+        const txt=(card.textContent||'').toLowerCase();
+        const click=String(card.getAttribute('onclick')||'').toLowerCase();
+        if(click.includes('linko') || txt.includes('linko')){
+          card.classList.add('linko-branch-card');
+          card.setAttribute('data-branch','linko');
+          const h=card.querySelector('h3'); if(h) h.textContent='LINKO للتصاميم';
+          const sm=card.querySelector('small'); if(sm && !sm.textContent.includes('15')) sm.textContent='15 منتج وخدمة';
+          const ico=card.querySelector('.branch-img .mi'); if(ico) ico.textContent='workspace_premium';
+        }
+      });
+    }catch(e){}
+  }
+  const oldRenderBranches=window.renderBranches;
+  window.renderBranches=function(){
+    if(typeof oldRenderBranches==='function') oldRenderBranches.apply(this,arguments);
+    setTimeout(fixLinkoBranch,0);
+  };
+  window.addEventListener('load',()=>{fixLinkoBranch();setTimeout(fixLinkoBranch,250);setTimeout(fixLinkoBranch,900)});
+  document.addEventListener('DOMContentLoaded',()=>{fixLinkoBranch();setTimeout(fixLinkoBranch,250)});
+  setInterval(fixLinkoBranch,1200);
+})();
+</script>
+
 </body>
 </html>
 <!-- ===== LINKO SAFE PATCH: home delivery, assistant stability, instant cart feedback, clearer chat ===== -->
