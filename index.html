@@ -3768,6 +3768,31 @@ body.linko-dark .branch-card::before{opacity:.82!important}
       source: 'Firestore'
     };
   }
+
+  async function ensureMemberWriteAuth(){
+    try{
+      if(!window.firebase || !firebase.auth) return true;
+      const auth = firebase.auth();
+      if(auth.currentUser) return true;
+      if(typeof auth.signInAnonymously === 'function'){
+        await auth.signInAnonymously();
+        return true;
+      }
+      return true;
+    }catch(err){
+      console.error('LINKO anonymous auth error', err);
+      safeToast('لم يتم تفعيل Anonymous Auth في Firebase. فعّله من Authentication ثم Sign-in method.');
+      return false;
+    }
+  }
+  function firebaseErrorText(err){
+    const code = (err && err.code) ? String(err.code) : '';
+    if(code.includes('permission-denied')) return 'Firestore Rules تمنع إرسال الطلب. عدّل القواعد أو فعّل تسجيل الدخول المجهول.';
+    if(code.includes('unavailable')) return 'الاتصال ضعيف أو Firestore غير متاح حالياً.';
+    if(code.includes('failed-precondition')) return 'Firestore يحتاج Index أو إعداد ناقص.';
+    if(code.includes('unauthenticated')) return 'يجب تفعيل Anonymous Auth حتى يستطيع العضو إرسال الطلب.';
+    return 'تعذر إرسال طلب الاشتراك. راجع Firestore Rules أو الاتصال.';
+  }
   function memberToMainShape(id,d){
     const data = d || {};
     return {
@@ -3798,6 +3823,8 @@ body.linko-dark .branch-card::before{opacity:.82!important}
     const address = cleanText(document.getElementById('regAddress')?.value);
     if(!fullName || !password || !phone || !address){ safeToast('أكمل بيانات الاشتراك أولاً'); return; }
     try{
+      const okAuth = await ensureMemberWriteAuth();
+      if(!okAuth) return;
       const existing = await db.collection(COL_REQUESTS)
         .where('phone','==',phone)
         .where('status','==','pending')
@@ -3822,7 +3849,7 @@ body.linko-dark .branch-card::before{opacity:.82!important}
       try{ window.pendingAvatarData=''; if(window.regAvatarPreview && window.renderAvatarBox) window.renderAvatarBox(window.regAvatarPreview,''); }catch(_e){}
       try{ if(typeof window.switchAuth==='function') window.switchAuth('login'); }catch(_e){}
       safeToast('تم إرسال طلب الاشتراك إلى الإدارة، انتظر الموافقة ثم سجل الدخول');
-    }catch(err){ console.error('LINKO phase2 register error', err); safeToast('تعذر إرسال طلب الاشتراك. راجع Firestore Rules أو الاتصال.'); }
+    }catch(err){ console.error('LINKO phase2 register error', err); safeToast(firebaseErrorText(err)); }
   };
 
   // صفحة الأعضاء: تسجيل الدخول من Collection الأعضاء بعد موافقة الإدارة
