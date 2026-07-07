@@ -323,6 +323,37 @@ body.linko-dark #infoModal .modal-card > .btn.full{
 .request-actions .btn .mi{font-size:22px!important;flex:0 0 auto!important}
 @media(max-width:410px){.request-actions{grid-template-columns:1fr 1fr!important}.request-actions .btn{min-height:56px!important;font-size:13px!important;padding:9px 8px!important}}
 
+
+
+/* ===== LINKO FINAL: company branch readability in light/dark mode ===== */
+.branch-card.linko-branch-card{
+  background:linear-gradient(145deg,#101827 0%,#172033 55%,#1f2937 100%)!important;
+  border:2px solid rgba(245,181,68,.95)!important;
+  box-shadow:0 18px 42px rgba(15,23,42,.18),0 0 0 1px rgba(245,181,68,.28)!important;
+  color:#fff!important;
+}
+.branch-card.linko-branch-card .branch-img{
+  background:radial-gradient(circle at center,rgba(245,181,68,.24),transparent 52%),linear-gradient(145deg,#111827,#0b1220)!important;
+}
+.branch-card.linko-branch-card .branch-img .mi{
+  color:#ffd36b!important;
+  text-shadow:0 0 18px rgba(245,181,68,.65)!important;
+}
+.branch-card.linko-branch-card h3{
+  color:#fff!important;
+  text-shadow:0 2px 8px rgba(0,0,0,.55)!important;
+  font-weight:900!important;
+}
+.branch-card.linko-branch-card small{
+  color:#ffd36b!important;
+  text-shadow:0 2px 8px rgba(0,0,0,.50)!important;
+  font-weight:900!important;
+}
+body:not(.linko-dark) .branch-card.linko-branch-card h3,
+body:not(.linko-dark) .branch-card.linko-branch-card small{
+  color:#ffffff!important;
+}
+
 </style>
 </head>
 <body>
@@ -402,7 +433,7 @@ body.linko-dark #infoModal .modal-card > .btn.full{
 const DEMO_USER={username:'member_demo',password:'123456',name:'عضو سوق المدينة',phone:'07800000000',address:'بغداد',balance:75000,status:'مفعل',created:'2026/07/04',avatar:localStorage.getItem('lm_demo_avatar')||''};
 let currentUser=null, selectedBranch='all', selectedCat='all', currentRequestType='', cart=JSON.parse(localStorage.getItem('lm_cart')||'[]'), orders=JSON.parse(localStorage.getItem('lm_orders')||'[]'), requests=JSON.parse(localStorage.getItem('lm_requests')||'[]');
 const branches=[
- ['market','سوبر ماركت والمواد الغذائية','shopping_cart'],['meat','اللحوم والدواجن','set_meal'],['produce','الخضروات والفواكه','nutrition'],['bakery','المخابز والأفران','bakery_dining'],['restaurants','المطاعم والمقاهي','restaurant'],['furniture','الأثاث والمفروشات','chair'],['fashion','الملابس والأحذية والرياضة','checkroom'],['beauty','المجوهرات والتجميل','diamond'],['smoke','السكائر والنراكيل','smoking_rooms'],['electronics','الإلكترونيات والأجهزة الكهربائية','devices'],['homebuild','الأدوات المنزلية ومواد البناء','construction'],['vehicles','السيارات والدراجات','directions_car'],['gifts','المكتبة والهدايا والألعاب','redeem'],['contracting','المقاولات','engineering'],['linko','🌐 LINKO','workspace_premium']
+ ['market','سوبر ماركت والمواد الغذائية','shopping_cart'],['meat','اللحوم والدواجن','set_meal'],['produce','الخضروات والفواكه','nutrition'],['bakery','المخابز والأفران','bakery_dining'],['restaurants','المطاعم والمقاهي','restaurant'],['furniture','الأثاث والمفروشات','chair'],['fashion','الملابس والأحذية والرياضة','checkroom'],['beauty','المجوهرات والتجميل','diamond'],['smoke','السكائر والنراكيل','smoking_rooms'],['electronics','الإلكترونيات والأجهزة الكهربائية','devices'],['homebuild','الأدوات المنزلية ومواد البناء','construction'],['vehicles','السيارات والدراجات','directions_car'],['gifts','المكتبة والهدايا والألعاب','redeem'],['contracting','المقاولات','engineering'],['linko','LINKO للتصاميم','workspace_premium']
 ].map((x,i)=>({id:x[0],name:x[1],icon:x[2],count:8+i}));
 const cats=['الكل','عروض','جديد','الأكثر طلباً','متوفر','غير متوفر'];
 const branchProducts={
@@ -463,7 +494,7 @@ function register(e){e.preventDefault();let members=getSavedMembers();const full
 function fillUser(){memberName.textContent=currentUser.name;welcomeText.textContent='أهلاً، '+currentUser.name;memberBalance.textContent=money(currentUser.balance);profileName.textContent=currentUser.name;profileUsername.textContent='عضو سوق المدينة الكبير';profilePhone.textContent=currentUser.phone;profileAddress.textContent=currentUser.address;memberOrdersCount.textContent=orders.length;renderAvatarBox(memberAvatar,currentUser.avatar);renderAvatarBox(profileAvatar,currentUser.avatar)}
 function go(id){document.querySelectorAll('.app-page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');document.getElementById('bottomNav').style.display=id==='authPage'?'none':'grid';document.getElementById('floatCart').classList.toggle('show',cart.length>0 && id==='homePage');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));const map={homePage:0,cartPage:1,ordersPage:2,notificationsPage:3,profilePage:4};if(map[id]!=null)document.querySelectorAll('.nav-btn')[map[id]].classList.add('active'); if(id==='cartPage')renderCart(); if(id==='ordersPage')renderOrders(); if(id==='notificationsPage')renderNotes(); if(id==='profilePage')renderRequests(); window.scrollTo(0,0)}
 function renderAll(){renderBranches();renderCats();renderProducts();renderCart();renderOrders();renderNotes();renderRequests();updateCart()}
-function renderBranches(){branchesRail.innerHTML=branches.map(b=>`<button class="branch-card ${selectedBranch===b.id?'active':''}" onclick="selectBranch('${b.id}')"><div class="branch-img"><span class="mi">${b.icon}</span></div><h3>${b.name}</h3><small>${b.count} منتج وخدمة</small></button>`).join('')}
+function renderBranches(){branchesRail.innerHTML=branches.map(b=>`<button class="branch-card ${selectedBranch===b.id?'active':''} ${b.id==='linko'?'linko-branch-card':''}" onclick="selectBranch('${b.id}')"><div class="branch-img"><span class="mi">${b.icon}</span></div><h3>${b.name}</h3><small>${b.count} منتج وخدمة</small></button>`).join('')}
 function renderCats(){catsRail.innerHTML=cats.map(c=>`<button class="chip ${selectedCat===c||selectedCat==='all'&&c==='الكل'?'active':''}" onclick="selectedCat='${c==='الكل'?'all':c}';renderCats();renderProducts();">${c}</button>`).join('')}
 function selectBranch(id){selectedBranch=id;selectedCat='all';renderBranches();renderCats();renderProducts();const sec=document.getElementById('productsSection'); if(sec) sec.scrollIntoView({behavior:'smooth',block:'start'});toast(id==='all'?'تم عرض كل المنتجات':'تم اختيار الفرع')}
 function renderProducts(){const q=(globalSearch?.value||'').trim().toLowerCase();const branchName=selectedBranch==='all'?'كل المنتجات':(branches.find(b=>b.id===selectedBranch)?.name||'منتجات الفرع'); if(document.getElementById('selectedBranchTitle')) selectedBranchTitle.textContent=branchName;let list=products.filter(p=>(selectedBranch==='all'||p.branch===selectedBranch)&&(selectedCat==='all'||p.badge===selectedCat||selectedCat==='متوفر'&&p.status==='متوفر'||selectedCat==='غير متوفر'&&p.status==='غير متوفر')&&(!q||p.name.toLowerCase().includes(q)||branches.find(b=>b.id===p.branch)?.name.toLowerCase().includes(q)));productsCount.textContent=list.length+' منتج ظاهر';productsGrid.innerHTML=list.length?list.map(p=>{const inCart=cart.find(x=>x.id===p.id);return `<article class="product-card"><div class="product-img"><span class="p-badge">${p.badge}</span><span class="p-status ${p.status==='غير متوفر'?'off':''}">${p.status}</span><span class="mi">${p.icon}</span></div><div class="product-body"><h3>${p.name}</h3><div class="price-row"><button class="add-btn ${inCart?'added':''}" ${p.status==='غير متوفر'?'disabled':''} onclick="addToCart('${p.id}',this)"><span class="mi">${inCart?'check':'add'}</span>${inCart?'مضاف':'أضف'}</button></div></div></article>`}).join(''):'<div class="empty-card">لا توجد نتائج مطابقة حالياً</div>'}
