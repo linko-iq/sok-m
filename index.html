@@ -3554,7 +3554,6 @@ body.linko-dark .branch-card::before{opacity:.82!important}
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script id="linkoFirebaseAdminPhase1">
 (function(){
   'use strict';
@@ -3741,7 +3740,7 @@ body.linko-dark .branch-card::before{opacity:.82!important}
     messagingSenderId: "1038784782291",
     appId: "1:1038784782291:web:c127e5ba879d5402389926"
   };
-  const COL_REQUESTS = 'subscriptionRequests';
+  const COL_REQUESTS = 'membership_requests';
   const COL_MEMBERS = 'members';
 
   function bootFirebase(){
@@ -3770,29 +3769,48 @@ body.linko-dark .branch-card::before{opacity:.82!important}
   }
 
   async function ensureMemberWriteAuth(){
-    try{
-      if(!window.firebase || !firebase.auth) return true;
-      const auth = firebase.auth();
-      if(auth.currentUser) return true;
-      if(typeof auth.signInAnonymously === 'function'){
-        await auth.signInAnonymously();
-        return true;
-      }
-      return true;
-    }catch(err){
-      console.error('LINKO anonymous auth error', err);
-      safeToast('لم يتم تفعيل Anonymous Auth في Firebase. فعّله من Authentication ثم Sign-in method.');
-      return false;
-    }
+    // المرحلة الثانية النهائية: إرسال طلب الاشتراك مسموح من Firestore Rules بدون Anonymous Auth.
+    // لا نستخدم تسجيل دخول مجهول حتى يبقى النظام Production Ready ونظيف.
+    return true;
   }
   function firebaseErrorText(err){
     const code = (err && err.code) ? String(err.code) : '';
-    if(code.includes('permission-denied')) return 'Firestore Rules تمنع إرسال الطلب. عدّل القواعد أو فعّل تسجيل الدخول المجهول.';
+    if(code.includes('permission-denied')) return 'Firestore Rules تمنع العملية. تأكد أن القواعد منشورة وأن الحقول المطلوبة موجودة.';
     if(code.includes('unavailable')) return 'الاتصال ضعيف أو Firestore غير متاح حالياً.';
     if(code.includes('failed-precondition')) return 'Firestore يحتاج Index أو إعداد ناقص.';
-    if(code.includes('unauthenticated')) return 'يجب تفعيل Anonymous Auth حتى يستطيع العضو إرسال الطلب.';
-    return 'تعذر إرسال طلب الاشتراك. راجع Firestore Rules أو الاتصال.';
+    if(code.includes('unauthenticated')) return 'تحتاج تسجيل دخول صالح لإكمال هذه العملية.';
+    if(code.includes('email-already-in-use')) return 'هذا الرقم لديه حساب مسبقاً. راجع طلبات الاشتراك أو الأعضاء.';
+    if(code.includes('invalid-email')) return 'رقم الهاتف غير صالح لإنشاء حساب العضو.';
+    if(code.includes('weak-password')) return 'الرمز ضعيف جداً. يجب أن يكون 6 أحرف/أرقام على الأقل.';
+    return 'تعذر إكمال العملية. راجع Firestore Rules أو الاتصال.';
   }
+  function normalizePhoneForEmail(phone){
+    let n = String(phone || '').trim().replace(/[^0-9]/g,'');
+    if(n.startsWith('00')) n = n.slice(2);
+    if(n.startsWith('0')) n = '964' + n.slice(1);
+    return n;
+  }
+  function memberEmailFromPhone(phone){
+    const n = normalizePhoneForEmail(phone);
+    if(!n || n.length < 8) throw new Error('invalid-member-phone');
+    return n + '@souq-members.local';
+  }
+  function memberLoginHint(){
+    try{
+      const userInput = document.getElementById('loginUsername');
+      const label = userInput && userInput.closest('.field') ? userInput.closest('.field').querySelector('label') : null;
+      if(label) label.textContent = 'رقم الهاتف';
+      if(userInput) userInput.placeholder = 'اكتب رقم الهاتف المسجل';
+    }catch(e){}
+  }
+  function getMemberCreatorAuth(){
+    if(!window.firebase || !firebase.initializeApp || !firebase.auth) throw new Error('Firebase Auth غير جاهز');
+    let app;
+    try{ app = firebase.app('linkoMemberCreator'); }
+    catch(e){ app = firebase.initializeApp(LINKO_FIREBASE_CONFIG, 'linkoMemberCreator'); }
+    return app.auth();
+  }
+
   function memberToMainShape(id,d){
     const data = d || {};
     return {
@@ -3823,13 +3841,6 @@ body.linko-dark .branch-card::before{opacity:.82!important}
     const address = cleanText(document.getElementById('regAddress')?.value);
     if(!fullName || !password || !phone || !address){ safeToast('أكمل بيانات الاشتراك أولاً'); return; }
     try{
-      const okAuth = await ensureMemberWriteAuth();
-      if(!okAuth) return;
-      const existing = await db.collection(COL_REQUESTS)
-        .where('phone','==',phone)
-        .where('status','==','pending')
-        .limit(1).get();
-      if(!existing.empty){ safeToast('طلبك موجود حالياً بانتظار موافقة الإدارة'); return; }
       await db.collection(COL_REQUESTS).add({
         name: fullName,
         username: fullName,
@@ -3857,30 +3868,34 @@ body.linko-dark .branch-card::before{opacity:.82!important}
     if(e && e.preventDefault) e.preventDefault();
     const db = bootFirebase();
     if(!db){ safeToast('تعذر الاتصال بـ Firebase.'); return; }
-    const fullName = cleanText(document.getElementById('loginUsername')?.value);
+    const phoneInput = cleanText(document.getElementById('loginUsername')?.value);
     const password = cleanText(document.getElementById('loginPassword')?.value);
-    if(!fullName || !password){ safeToast('اكتب الاسم الكامل والرمز'); return; }
+    if(!phoneInput || !password){ safeToast('اكتب رقم الهاتف والرمز'); return; }
     try{
-      let snap = await db.collection(COL_MEMBERS)
-        .where('name','==',fullName)
-        .where('password','==',password)
-        .limit(1).get();
-      if(snap.empty){
-        snap = await db.collection(COL_MEMBERS)
-          .where('username','==',fullName)
-          .where('password','==',password)
-          .limit(1).get();
-      }
-      if(snap.empty){ safeToast('الاسم الكامل أو الرمز غير صحيح أو لم تتم الموافقة بعد'); return; }
-      const doc = snap.docs[0];
-      window.currentUser = memberToMainShape(doc.id, doc.data());
+      if(!window.firebase || !firebase.auth) throw new Error('Firebase Auth غير جاهز');
+      const email = memberEmailFromPhone(phoneInput);
+      const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
+      const uid = cred.user && cred.user.uid ? cred.user.uid : '';
+      if(!uid){ safeToast('تعذر تحديد حساب العضو'); return; }
+      const doc = await db.collection(COL_MEMBERS).doc(uid).get();
+      if(!doc.exists){ safeToast('حسابك غير مفعل داخل النظام بعد. راجع الإدارة.'); return; }
+      const data = doc.data() || {};
+      if(data.status && data.status !== 'active'){ safeToast('حسابك غير مفعل حالياً.'); return; }
+      window.currentUser = memberToMainShape(doc.id, data);
+      try{ localStorage.setItem('souqCurrentUser', JSON.stringify(window.currentUser)); }catch(_e){}
       try{ if(typeof window.fillUser==='function') window.fillUser(); }catch(_e){}
       try{ if(typeof window.go==='function') window.go('homePage'); }catch(_e){}
       safeToast('تم تسجيل الدخول بنجاح');
-    }catch(err){ console.error('LINKO phase2 login error', err); safeToast('تعذر تسجيل الدخول. تحقق من Firestore Rules أو الاتصال.'); }
+    }catch(err){
+      console.error('LINKO phase2 member auth login error', err);
+      const code = (err && err.code) ? String(err.code) : '';
+      if(code.includes('invalid-credential') || code.includes('user-not-found') || code.includes('wrong-password')) safeToast('رقم الهاتف أو الرمز غير صحيح أو لم تتم الموافقة بعد');
+      else if(String(err.message||'').includes('invalid-member-phone')) safeToast('اكتب رقم هاتف صحيح');
+      else safeToast(firebaseErrorText(err));
+    }
   };
 
-  function patchAdminFrame(){
+    function patchAdminFrame(){
     const frame = document.getElementById('linkoAdminFrame');
     if(!frame || !frame.contentWindow) return;
     const cw = frame.contentWindow;
@@ -3922,14 +3937,33 @@ body.linko-dark .branch-card::before{opacity:.82!important}
         const r = (cw.state.requests || []).find(x => String(x.id) === String(id) || String(x.firebaseId) === String(id));
         if(!r) return;
         try{
-          await db.collection(COL_MEMBERS).add({
+          const memberEmail = memberEmailFromPhone(r.phone || '');
+          const memberPassword = String(r.password || r.code || '').trim();
+          if(!memberPassword || memberPassword.length < 6){ try{cw.toast('رمز العضو يجب أن يكون 6 أحرف/أرقام على الأقل');}catch(_e){} return; }
+          let uid = '';
+          try{
+            const creatorAuth = getMemberCreatorAuth();
+            const cred = await creatorAuth.createUserWithEmailAndPassword(memberEmail, memberPassword);
+            uid = cred.user && cred.user.uid ? cred.user.uid : '';
+            try{ await creatorAuth.signOut(); }catch(_e){}
+          }catch(authErr){
+            console.error('LINKO create member auth error', authErr);
+            const code = authErr && authErr.code ? String(authErr.code) : '';
+            if(code.includes('email-already-in-use')){ try{cw.toast('هذا الرقم لديه حساب مسبقاً ولا يمكن إنشاء حساب مكرر');}catch(_e){} return; }
+            if(code.includes('weak-password')){ try{cw.toast('رمز العضو ضعيف. اجعله 6 أحرف/أرقام على الأقل');}catch(_e){} return; }
+            try{cw.toast(firebaseErrorText(authErr));}catch(_e){}
+            return;
+          }
+          if(!uid){ try{cw.toast('تعذر إنشاء حساب العضو في Authentication');}catch(_e){} return; }
+          await db.collection(COL_MEMBERS).doc(uid).set({
             name: r.name || '',
             username: r.username || r.name || '',
             phone: r.phone || '',
+            authEmail: memberEmail,
             area: r.area || '',
             address: r.area || '',
-            code: r.code || r.password || '',
-            password: r.password || r.code || '',
+            code: memberPassword,
+            password: memberPassword,
             balance: Number(r.balance || 0),
             status: 'active',
             img: r.img || '',
@@ -3942,10 +3976,10 @@ body.linko-dark .branch-card::before{opacity:.82!important}
           });
           if(r.firebaseId){ await db.collection(COL_REQUESTS).doc(String(r.firebaseId)).delete(); }
           cw.state.requests = (cw.state.requests || []).filter(x => String(x.id) !== String(id) && String(x.firebaseId) !== String(id));
-          try{ cw.log && cw.log('موافقة على عضو','تم قبول طلب '+r.name+' ونقله إلى Firestore / members'); }catch(_e){}
-          try{ cw.toast && cw.toast('تمت الموافقة ونقل العضو'); }catch(_e){}
+          try{ cw.log && cw.log('موافقة على عضو','تم قبول طلب '+r.name+' وإنشاء حساب Authentication ونقله إلى Firestore / members'); }catch(_e){}
+          try{ cw.toast && cw.toast('تمت الموافقة وإنشاء حساب العضو'); }catch(_e){}
           try{ cw.render && cw.render(); }catch(_e){}
-        }catch(err){ console.error('LINKO approve Firestore error',err); try{cw.toast('تعذرت الموافقة. تحقق من Firestore Rules.');}catch(_e){} }
+        }catch(err){ console.error('LINKO approve Firestore error',err); try{cw.toast(firebaseErrorText(err));}catch(_e){} }
       };
 
       cw.rejectReq = async function(id){
@@ -4013,11 +4047,12 @@ body.linko-dark .branch-card::before{opacity:.82!important}
 
   document.addEventListener('DOMContentLoaded',function(){
     bootFirebase();
+    memberLoginHint();
     const frame = document.getElementById('linkoAdminFrame');
     if(frame) frame.addEventListener('load',function(){ setTimeout(patchAdminFrame,100); });
     setTimeout(patchAdminFrame,700);
   });
-  window.addEventListener('load',function(){ bootFirebase(); setTimeout(patchAdminFrame,900); });
+  window.addEventListener('load',function(){ bootFirebase(); memberLoginHint(); setTimeout(patchAdminFrame,900); });
   setInterval(function(){
     const shell = document.getElementById('linkoAdminShell');
     if(shell && shell.classList.contains('show')) patchAdminFrame();
