@@ -2627,7 +2627,7 @@ function toggleTheme(){
 }
 function initTheme(){applyTheme(localStorage.getItem(THEME_LS)||&#x27;light&#x27;)}
 
-const sections=[[&#x27;dashboard&#x27;,&#x27;dashboard&#x27;,&#x27;الرئيسية Dashboard&#x27;,&#x27;نظرة سريعة على حالة النظام اليوم.&#x27;],[&#x27;subscriptions&#x27;,&#x27;assignment_add&#x27;,&#x27;طلبات الاشتراك&#x27;,&#x27;مراجعة طلبات الاشتراك الجديدة والموافقة أو الرفض.&#x27;],[&#x27;members&#x27;,&#x27;groups&#x27;,&#x27;إدارة الأعضاء&#x27;,&#x27;بحث وتعديل بيانات الأعضاء والرصيد والحالة.&#x27;],[&#x27;products&#x27;,&#x27;shopping_cart&#x27;,&#x27;إدارة المنتجات&#x27;,&#x27;إضافة وتعديل وحذف المنتجات والتحكم بالحالة والبيع.&#x27;],[&#x27;branches&#x27;,&#x27;storefront&#x27;,&#x27;إدارة الفروع&#x27;,&#x27;إدارة فروع السوق والأقسام المرتبطة بها.&#x27;],[&#x27;requests&#x27;,&#x27;move_to_inbox&#x27;,&#x27;استلام الطلبات&#x27;,&#x27;استلام طلبات تعديل بيانات الأعضاء والرصيد والعضوية.&#x27;],[&#x27;reports&#x27;,&#x27;monitoring&#x27;,&#x27;التقارير&#x27;,&#x27;إحصائيات الطلبات والأعضاء والمنتجات والفروع.&#x27;],[&#x27;notifications&#x27;,&#x27;notifications&#x27;,&#x27;الإشعارات&#x27;,&#x27;إرسال إشعارات للأعضاء أو الفروع أو عضو محدد.&#x27;],[&#x27;logs&#x27;,&#x27;receipt_long&#x27;,&#x27;سجل العمليات&#x27;,&#x27;تتبع كل عملية مهمة داخل النظام.&#x27;],[&#x27;settings&#x27;,&#x27;settings&#x27;,&#x27;إعدادات النظام&#x27;,&#x27;إعدادات عامة للهوية والعملة والواتساب.&#x27;],[&#x27;trash&#x27;,&#x27;delete&#x27;,&#x27;سلة المحذوفات&#x27;,&#x27;استعراض العناصر المحذوفة وإدارتها.&#x27;]];
+const sections=[[&#x27;dashboard&#x27;,&#x27;dashboard&#x27;,&#x27;الرئيسية Dashboard&#x27;,&#x27;نظرة سريعة على حالة النظام اليوم.&#x27;],[&#x27;subscriptions&#x27;,&#x27;assignment_add&#x27;,&#x27;طلبات الاشتراك&#x27;,&#x27;مراجعة طلبات الاشتراك الجديدة والموافقة أو الرفض.&#x27;],[&#x27;members&#x27;,&#x27;groups&#x27;,&#x27;إدارة الأعضاء&#x27;,&#x27;بحث وتعديل بيانات الأعضاء والرصيد والحالة.&#x27;],[&#x27;products&#x27;,&#x27;shopping_cart&#x27;,&#x27;إدارة المنتجات&#x27;,&#x27;إضافة وتعديل وحذف المنتجات والتحكم بالحالة والبيع.&#x27;],[&#x27;branches&#x27;,&#x27;storefront&#x27;,&#x27;إدارة الفروع&#x27;,&#x27;إدارة فروع السوق والأقسام المرتبطة بها.&#x27;],[&#x27;requests&#x27;,&#x27;move_to_inbox&#x27;,&#x27;استلام طلبات التعديل&#x27;,&#x27;استلام طلبات تعديل بيانات الأعضاء والرصيد والعضوية.&#x27;],[&#x27;reports&#x27;,&#x27;monitoring&#x27;,&#x27;التقارير&#x27;,&#x27;إحصائيات الطلبات والأعضاء والمنتجات والفروع.&#x27;],[&#x27;notifications&#x27;,&#x27;notifications&#x27;,&#x27;الإشعارات&#x27;,&#x27;إرسال إشعارات للأعضاء أو الفروع أو عضو محدد.&#x27;],[&#x27;logs&#x27;,&#x27;receipt_long&#x27;,&#x27;سجل العمليات&#x27;,&#x27;تتبع كل عملية مهمة داخل النظام.&#x27;],[&#x27;settings&#x27;,&#x27;settings&#x27;,&#x27;إعدادات النظام&#x27;,&#x27;إعدادات عامة للهوية والعملة والواتساب.&#x27;],[&#x27;trash&#x27;,&#x27;delete&#x27;,&#x27;سلة المحذوفات&#x27;,&#x27;استعراض العناصر المحذوفة وإدارتها.&#x27;]];
 let active=&#x27;dashboard&#x27;, state=loadState();
 function seed(){return{settings:{market:&#x27;سوق المدينة الكبير&#x27;,whatsapp:&#x27;9647887624967&#x27;,currency:&#x27;د.ع&#x27;},requests:[],members:[],products:[],branches:[],notifications:[],logs:[],orders:[],adminMessages:[],trash:[]}}
 function normalizeState(data){
@@ -2676,7 +2676,6 @@ function createAdminMessage(type,title,details,extra={}){
  toast(&#x27;وصل طلب جديد للإدارة: &#x27;+title);
  render();
 }
-function demoCreditRequest(){toast('هذه الأداة غير متاحة في النسخة الرسمية')}
 function approveReq(id){let r=state.requests.find(x=&gt;x.id===id);if(!r)return; state.members.unshift({id:Date.now(),name:r.name,username:r.name,phone:r.phone,area:r.area,code:r.code,password:r.code,balance:0,status:&#x27;active&#x27;,img:&#x27;&#x27;}); state.requests=state.requests.filter(x=&gt;x.id!==id); log(&#x27;موافقة على عضو&#x27;,&#x27;تم قبول طلب &#x27;+r.name); save(); toast(&#x27;تمت الموافقة ونقل العضو&#x27;); render()}
 function rejectReq(id){let r=state.requests.find(x=&gt;x.id===id);if(r){r.status=&#x27;rejected&#x27;;log(&#x27;رفض طلب اشتراك&#x27;,&#x27;تم رفض طلب &#x27;+r.name);save();toast(&#x27;تم رفض الطلب&#x27;);render()}}
 function deleteReq(id){if(confirm(&#x27;تأكيد حذف الطلب ونقله إلى سلة المحذوفات؟&#x27;)){let r=state.requests.find(x=&gt;x.id===id);if(r){state.trash=state.trash||[];state.trash.unshift({id:Date.now(),kind:&#x27;طلب اشتراك&#x27;,name:r.name,data:r,time:new Date().toLocaleString(&#x27;ar-IQ&#x27;)});}state.requests=state.requests.filter(x=&gt;x.id!==id);log(&#x27;حذف طلب اشتراك&#x27;,&#x27;تم نقل طلب اشتراك إلى سلة المحذوفات&#x27;);save();toast(&#x27;تم نقل الطلب إلى السلة&#x27;);render()}}
@@ -2831,7 +2830,7 @@ function adminRequestCard(r){return `&lt;div class=&quot;admin-request unread&qu
 function approveAdminRequest(id){const r=(state.adminMessages||[]).find(x=&gt;x.id===id);if(!r)return;if(r.type===&#x27;credit_request&#x27;&amp;&amp;r.memberId){const m=state.members.find(x=&gt;x.id===r.memberId);if(m){m.balance+=(+r.amount||0);}}
  if(r.type===&#x27;stop_request&#x27;&amp;&amp;r.memberId){const m=state.members.find(x=&gt;x.id===r.memberId);if(m){m.status=&#x27;stopped&#x27;;}}
  r.status=&#x27;approved&#x27;;r.resolvedAt=new Date().toLocaleString(&#x27;ar-IQ&#x27;);log(&#x27;موافقة طلب إداري&#x27;,r.title+&#x27; - &#x27;+r.details);save();toast(&#x27;تمت الموافقة على الطلب&#x27;);render();}
-function rejectAdminRequest(id){const r=(state.adminMessages||[]).find(x=&gt;x.id===id);if(!r)return;r.status=&#x27;rejected&#x27;;r.resolvedAt=new Date().toLocaleString(&#x27;ar-IQ&#x27;);log(&#x27;رفض طلب إداري&#x27;,r.title+&#x27; - &#x27;+r.details);save();toast(&#x27;تم رفض الطلب&#x27;);render();}
+function rejectAdminRequest(id){const r=(state.adminMessages||[]).find(x=&gt;x.id===id);if(!r)return;state.adminMessages=(state.adminMessages||[]).filter(x=&gt;x.id!==id);log(&#x27;رفض طلب إداري&#x27;,r.title+&#x27; - &#x27;+r.details);save();toast(&#x27;تم رفض الطلب واختفى&#x27;);render();}
 function deleteAdminRequest(id){if(confirm(&#x27;تأكيد حذف الطلب؟&#x27;)){state.adminMessages=(state.adminMessages||[]).filter(x=&gt;x.id!==id);log(&#x27;حذف طلب إداري&#x27;,&#x27;تم حذف طلب من صندوق الإدارة&#x27;);save();toast(&#x27;تم حذف الطلب&#x27;);render();}}
 function renderNotificationTargets(){const type=document.getElementById(&#x27;nType&#x27;)?.value||&#x27;all_members&#x27;;const target=document.getElementById(&#x27;nTarget&#x27;);if(!target)return;if(type===&#x27;member&#x27;){target.innerHTML=state.members.map(m=&gt;`&lt;option value=&quot;${m.id}&quot;&gt;${m.name} - ${m.phone}&lt;/option&gt;`).join(&#x27;&#x27;)||&#x27;&lt;option&gt;لا يوجد أعضاء&lt;/option&gt;&#x27;;}else if(type===&#x27;branch&#x27;){target.innerHTML=state.branches.map(b=&gt;`&lt;option value=&quot;${b.id}&quot;&gt;${b.name}&lt;/option&gt;`).join(&#x27;&#x27;)||&#x27;&lt;option&gt;لا يوجد فروع&lt;/option&gt;&#x27;;}else{target.innerHTML=&#x27;&lt;option value=&quot;all&quot;&gt;كل الأعضاء&lt;/option&gt;&#x27;;}}
 function notificationTargetName(type,val){if(type===&#x27;member&#x27;){return state.members.find(m=&gt;String(m.id)===String(val))?.name||&#x27;عضو محدد&#x27;;}if(type===&#x27;branch&#x27;){return state.branches.find(b=&gt;String(b.id)===String(val))?.name||&#x27;فرع محدد&#x27;;}return &#x27;كل الأعضاء&#x27;;}
@@ -2869,16 +2868,16 @@ initTheme();buildNav();render();
 
 
 
-<!-- ===== LINKO PATCH: admin visibility + premium splash/login intro ===== -->
+
 <style id="linkoDevGateAndSplashPatch">
-  /* مدخل الإدارة مخفي عن الواجهة ويعمل بثلاث ضغطات سريعة على الشعار */
+  
   .linko-admin-entry{display:none!important}
   body.linko-auth-visible .linko-admin-entry{display:none!important}
 
   /* زر الرجوع الثابت داخل نافذة الإدارة ملغي حتى لا يبقى فوق اللوحة */
   .linko-admin-frame-top{display:none!important}
 
-  /* زر رجوع الأعضاء داخل شاشة دخول الإدارة فقط */
+  
   .linko-admin-login-back{
     width:100%!important;
     min-height:46px!important;
@@ -2992,7 +2991,7 @@ initTheme();buildNav();render();
   const oldOpen=window.linkoOpenAdmin;
   window.linkoOpenAdmin=function(){ if(typeof oldOpen==='function') oldOpen(); setTimeout(injectAdminBackButton,150); setTimeout(injectAdminBackButton,700); };
 
-  /* فتح نافذة الإدارة: 3 ضغطات عادية وسريعة على الشعار بدون ضغط مطول */
+  
   let linkoSecretLogoClicks=0;
   let linkoSecretLogoTimer=null;
   function isLogoTarget(target){
@@ -3184,7 +3183,6 @@ body.linko-dark .secret-info .secret-eye{background:#1e293b!important;color:#fff
 
     activatePageWithoutJump(targetPage);
 
-    // Restore exactly where the user opened the branch from, after layout finishes.
     requestAnimationFrame(()=>{
       window.scrollTo(0, targetScroll);
       requestAnimationFrame(()=>{
@@ -3475,7 +3473,7 @@ body.linko-dark .branch-card::before{opacity:.82!important}
 
 
 
-<!-- ===== LINKO OFFICIAL CLEANUP: security + responsive safety ===== -->
+
 <style id="linkoOfficialCleanupStyle">
   .secure-hint{background:#fff7ed!important;border-color:#fed7aa!important;color:#9a3412!important}
   html,body{max-width:100%!important;overflow-x:hidden!important;-webkit-text-size-adjust:100%;touch-action:manipulation}
@@ -3517,9 +3515,42 @@ body.linko-dark .branch-card::before{opacity:.82!important}
 })();
 </script>
 
+<style id="linkoProductionHardeningStyle">
+  html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important;}
+  *,*::before,*::after{box-sizing:border-box;}
+  img,video,canvas,svg{max-width:100%;height:auto;}
+  button,a,input,select,textarea{touch-action:manipulation;}
+  .linko-admin-entry{display:none!important;}
+  @media(max-width:330px){
+    .app-wrap{padding-left:8px!important;padding-right:8px!important;}
+    .bottom-nav{left:6px!important;right:6px!important;gap:2px!important;}
+    .nav-btn{min-height:46px!important;border-radius:16px!important;}
+    .nav-btn span:last-child{font-size:9px!important;}
+    .auth-card,.modal-card{border-radius:24px!important;padding:16px!important;}
+  }
+</style>
+<script id="linkoProductionHardeningScript">
+(function(){
+  window.LINKO_PRODUCTION_READY_UI=true;
+  function cleanProductionArtifacts(){
+    document.querySelectorAll('button,a,[data-test],[data-demo]').forEach(function(el){
+      var t=((el.textContent||'')+' '+(el.getAttribute('onclick')||'')+' '+(el.id||'')+' '+(el.className||''));
+      if(/دخول تجريبي|تجريبي|للتجربة|demo|test/i.test(t)){el.remove();}
+    });
+  }
+  function productionViewportFix(){
+    document.documentElement.style.overflowX='hidden';
+    document.body.style.overflowX='hidden';
+  }
+  document.addEventListener('DOMContentLoaded',function(){cleanProductionArtifacts();productionViewportFix();});
+  window.addEventListener('load',function(){cleanProductionArtifacts();productionViewportFix();});
+  window.addEventListener('resize',productionViewportFix,{passive:true});
+})();
+</script>
+
 </body>
 </html>
-<!-- ===== LINKO SAFE PATCH: home delivery, assistant stability, instant cart feedback, clearer chat ===== -->
+
 <style id="linkoSafePatchFinal">
 /* خانة التوصيل تحت بطاقة العضوية */
 #homeDeliveryStatusBox{
