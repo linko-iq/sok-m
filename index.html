@@ -2964,124 +2964,6 @@ initTheme();buildNav();render();
     setAuthHint(&#x27;Firebase جاهز - أدخل بريد الإدارة وكلمة المرور&#x27;, &#x27;ok&#x27;);
   });
 &lt;/script&gt;
-
-&lt;script id=&quot;linkoPhase2AdminSubscriptions&quot;&gt;
-(function(){
-  const cfg={
-    apiKey:&quot;AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc&quot;,
-    authDomain:&quot;souq-al-madina-al-kabeer.firebaseapp.com&quot;,
-    projectId:&quot;souq-al-madina-al-kabeer&quot;,
-    storageBucket:&quot;souq-al-madina-al-kabeer.firebasestorage.app&quot;,
-    messagingSenderId:&quot;1038784782291&quot;,
-    appId:&quot;1:1038784782291:web:c127e5ba879d5402389926&quot;
-  };
-  let fsApi=null;
-  async function ready(){
-    if(fsApi) return fsApi;
-    const [appMod,fs]=await Promise.all([
-      import(&#x27;https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js&#x27;),
-      import(&#x27;https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js&#x27;)
-    ]);
-    let app=window.LINKO_FIREBASE_APP;
-    if(!app){
-      try{app=appMod.getApps().find(a=&gt;a.name===&#x27;phase2-admin&#x27;) || appMod.initializeApp(cfg,&#x27;phase2-admin&#x27;);}
-      catch(e){app=appMod.getApps()[0] || appMod.initializeApp(cfg);}
-    }
-    const db=window.LINKO_FIRESTORE_DB || fs.getFirestore(app);
-    fsApi={fs,db};
-    return fsApi;
-  }
-  function say(m){ if(typeof toast===&#x27;function&#x27;) toast(m); else console.log(m); }
-  function normalizeReq(d,x){
-    x=x||{};
-    return {
-      id:d,
-      name:x.name||&#x27;&#x27;,
-      username:x.username||x.name||&#x27;&#x27;,
-      phone:x.phone||&#x27;&#x27;,
-      area:x.area||x.address||&#x27;&#x27;,
-      address:x.address||x.area||&#x27;&#x27;,
-      code:x.code||x.password||&#x27;&#x27;,
-      password:x.password||x.code||&#x27;&#x27;,
-      balance:+x.balance||0,
-      status:x.status||&#x27;pending&#x27;,
-      img:x.avatar||x.img||&#x27;&#x27;,
-      created:x.createdAtText||x.created||&#x27;&#x27;
-    };
-  }
-  function normalizeMember(d,x){
-    x=x||{};
-    return {
-      id:d,
-      name:x.name||&#x27;&#x27;,
-      username:x.username||x.name||&#x27;&#x27;,
-      phone:x.phone||&#x27;&#x27;,
-      area:x.area||x.address||&#x27;&#x27;,
-      address:x.address||x.area||&#x27;&#x27;,
-      code:x.code||x.password||&#x27;&#x27;,
-      password:x.password||x.code||&#x27;&#x27;,
-      balance:+x.balance||0,
-      status:x.status||&#x27;active&#x27;,
-      img:x.avatar||x.img||&#x27;&#x27;
-    };
-  }
-  function refresh(){ try{ if(typeof render===&#x27;function&#x27;) render(); }catch(e){console.error(e);} }
-  async function boot(){
-    const {fs,db}=await ready();
-    fs.onSnapshot(fs.query(fs.collection(db,&#x27;subscriptionRequests&#x27;),fs.orderBy(&#x27;createdAt&#x27;,&#x27;desc&#x27;)),snap=&gt;{
-      const list=[]; snap.forEach(doc=&gt;{const r=normalizeReq(doc.id,doc.data()); if(r.status!==&#x27;approved&#x27;) list.push(r);});
-      state.requests=list;
-      refresh();
-    },err=&gt;{console.error(err); say(&#x27;تعذر قراءة طلبات الاشتراك: &#x27;+(err.code||err.message));});
-    fs.onSnapshot(fs.query(fs.collection(db,&#x27;members&#x27;),fs.orderBy(&#x27;createdAt&#x27;,&#x27;desc&#x27;)),snap=&gt;{
-      const list=[]; snap.forEach(doc=&gt;list.push(normalizeMember(doc.id,doc.data())));
-      state.members=list;
-      refresh();
-    },err=&gt;console.error(err));
-  }
-  window.approveReq = async function(id){
-    const r=(state.requests||[]).find(x=&gt;String(x.id)===String(id));
-    if(!r){say(&#x27;لم يتم العثور على الطلب&#x27;);return;}
-    try{
-      const {fs,db}=await ready();
-      await fs.setDoc(fs.doc(db,&#x27;members&#x27;,String(id)),{
-        name:r.name,username:r.username||r.name,phone:r.phone,address:r.address||r.area,area:r.area||r.address,
-        password:r.password||r.code,code:r.code||r.password,balance:0,status:&#x27;active&#x27;,avatar:r.img||&#x27;&#x27;,img:r.img||&#x27;&#x27;,
-        createdAt:fs.serverTimestamp(),createdAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)
-      },{merge:true});
-      await fs.updateDoc(fs.doc(db,&#x27;subscriptionRequests&#x27;,String(id)),{status:&#x27;approved&#x27;,approvedAt:fs.serverTimestamp(),approvedAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)});
-      say(&#x27;تمت الموافقة ونقل العضو&#x27;);
-    }catch(err){console.error(err);say(&#x27;تعذر الموافقة: &#x27;+(err.code||err.message));}
-  };
-  window.rejectReq = async function(id){
-    try{const {fs,db}=await ready(); await fs.updateDoc(fs.doc(db,&#x27;subscriptionRequests&#x27;,String(id)),{status:&#x27;rejected&#x27;,rejectedAt:fs.serverTimestamp(),rejectedAtText:new Date().toLocaleString(&#x27;ar-IQ&#x27;)}); say(&#x27;تم رفض الطلب&#x27;);}
-    catch(err){console.error(err);say(&#x27;تعذر رفض الطلب: &#x27;+(err.code||err.message));}
-  };
-  window.deleteReq = async function(id){
-    if(!confirm(&#x27;تأكيد حذف الطلب؟&#x27;)) return;
-    try{const {fs,db}=await ready(); await fs.deleteDoc(fs.doc(db,&#x27;subscriptionRequests&#x27;,String(id))); say(&#x27;تم حذف الطلب&#x27;);}
-    catch(err){console.error(err);say(&#x27;تعذر حذف الطلب: &#x27;+(err.code||err.message));}
-  };
-  window.clearRejected = async function(){
-    const rejected=(state.requests||[]).filter(x=&gt;x.status===&#x27;rejected&#x27;);
-    if(!rejected.length){say(&#x27;لا توجد طلبات مرفوضة&#x27;);return;}
-    if(!confirm(&#x27;تأكيد حذف جميع الطلبات المرفوضة؟&#x27;)) return;
-    const {fs,db}=await ready();
-    for(const r of rejected) await fs.deleteDoc(fs.doc(db,&#x27;subscriptionRequests&#x27;,String(r.id)));
-    say(&#x27;تم حذف المرفوضين&#x27;);
-  };
-  window.clearAllSubscriptionRequests = async function(){
-    const list=state.requests||[];
-    if(!list.length){say(&#x27;لا توجد طلبات&#x27;);return;}
-    if(!confirm(&#x27;تأكيد حذف جميع طلبات الاشتراك؟&#x27;)) return;
-    const {fs,db}=await ready();
-    for(const r of list) await fs.deleteDoc(fs.doc(db,&#x27;subscriptionRequests&#x27;,String(r.id)));
-    say(&#x27;تم حذف جميع الطلبات&#x27;);
-  };
-  boot().catch(err=&gt;{console.error(err);say(&#x27;تعذر تشغيل ربط الاشتراكات: &#x27;+(err.code||err.message));});
-})();
-&lt;/script&gt;
-
 &lt;/body&gt;
 &lt;/html&gt;
 "></iframe>
@@ -3783,307 +3665,306 @@ body.linko-dark .branch-card::before{opacity:.82!important}
 </script>
 
 
-<script id="linkoPhase2MemberSubscriptions">
-(function(){
-  const cfg={
-    apiKey:"AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc",
-    authDomain:"souq-al-madina-al-kabeer.firebaseapp.com",
-    projectId:"souq-al-madina-al-kabeer",
-    storageBucket:"souq-al-madina-al-kabeer.firebasestorage.app",
-    messagingSenderId:"1038784782291",
-    appId:"1:1038784782291:web:c127e5ba879d5402389926"
+
+<!-- ===== LINKO PHASE 2 ROOT FIX: Firebase subscriptions/member approval bridge ===== -->
+<script type="module" id="linkoPhase2SubscriptionsRootFix">
+  import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, doc, setDoc, deleteDoc, updateDoc, getDocs, query, where, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc",
+    authDomain: "souq-al-madina-al-kabeer.firebaseapp.com",
+    projectId: "souq-al-madina-al-kabeer",
+    storageBucket: "souq-al-madina-al-kabeer.firebasestorage.app",
+    messagingSenderId: "1038784782291",
+    appId: "1:1038784782291:web:c127e5ba879d5402389926"
   };
-  let firebaseReady=null;
-  function ready(){
-    if(firebaseReady) return firebaseReady;
-    firebaseReady=Promise.all([
-      import('https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js')
-    ]).then(([appMod,fs])=>{
-      let app;
-      try{ app=appMod.getApps().find(a=>a.name==='member-phase2') || appMod.initializeApp(cfg,'member-phase2'); }
-      catch(e){ app=appMod.getApps()[0] || appMod.initializeApp(cfg); }
-      const db=fs.getFirestore(app);
-      return {fs,db};
-    });
-    return firebaseReady;
+
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const REQ_COL = 'subscriptionRequests';
+  const MEM_COL = 'members';
+
+  let requestsCache = [];
+  let unsubRequests = null;
+  let lastSubError = '';
+
+  const safeText = (v='') => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  const nowText = () => new Date().toLocaleString('ar-IQ');
+
+  function showToast(msg){
+    if(typeof window.toast === 'function') window.toast(msg);
+    else alert(msg);
   }
-  function byId(id){return document.getElementById(id)}
-  function say(m){ if(typeof toast==='function') toast(m); else alert(m); }
+
+  function memberPayloadFromForm(){
+    const name = (document.getElementById('regName')?.value || '').trim();
+    const phone = (document.getElementById('regPhone')?.value || '').trim();
+    const address = (document.getElementById('regAddress')?.value || '').trim();
+    const password = (document.getElementById('regPassword')?.value || '').trim();
+    return { name, phone, address, area: address, password, code: password, username: name };
+  }
+
   window.register = async function(e){
-    e.preventDefault();
-    const fullName=(byId('regName')?.value||'').trim();
-    const phone=(byId('regPhone')?.value||'').trim();
-    const address=(byId('regAddress')?.value||'').trim();
-    const password=(byId('regPassword')?.value||'').trim();
-    const terms=byId('regTerms');
-    if(!fullName||!phone||!address||!password){say('أكمل بيانات الاشتراك أولاً');return;}
-    if(terms && !terms.checked){say('وافق على شروط استخدام الخدمة أولاً');return;}
-    const btn=e.submitter || e.target.querySelector('button[type="submit"]');
-    const old=btn?btn.innerHTML:''; if(btn){btn.disabled=true;btn.innerHTML='جاري إرسال الطلب...';}
+    if(e) e.preventDefault();
+    const data = memberPayloadFromForm();
+    if(!data.name || !data.phone || !data.address || !data.password){
+      showToast('أكمل بيانات الاشتراك أولاً');
+      return false;
+    }
     try{
-      const {fs,db}=await ready();
-      const ref=fs.doc(fs.collection(db,'subscriptionRequests'));
-      await fs.setDoc(ref,{
-        name:fullName,
-        username:fullName,
-        phone,
-        address,
-        area:address,
-        password,
-        code:password,
-        avatar:(typeof pendingAvatarData!=='undefined'?pendingAvatarData:''),
-        status:'pending',
-        createdAt:fs.serverTimestamp(),
-        createdAtMs:Date.now(),
-        createdAtText:new Date().toLocaleString('ar-IQ')
+      await addDoc(collection(db, REQ_COL), {
+        name: data.name,
+        phone: data.phone,
+        address: data.address,
+        area: data.address,
+        username: data.username,
+        password: data.password,
+        code: data.password,
+        status: 'pending',
+        source: 'member_register',
+        createdAt: serverTimestamp(),
+        createdText: nowText()
       });
-      e.target.reset();
-      if(typeof pendingAvatarData!=='undefined') pendingAvatarData='';
-      if(typeof renderAvatarBox==='function') renderAvatarBox(byId('regAvatarPreview'),'');
-      if(typeof switchAuth==='function') switchAuth('login');
-      say('تم إرسال طلب الاشتراك للإدارة بنجاح، انتظر الموافقة ثم ادخل بالاسم والرمز');
+      if(e && e.target && typeof e.target.reset === 'function') e.target.reset();
+      try{ if(typeof pendingAvatarData !== 'undefined') pendingAvatarData=''; }catch(_){ }
+      try{ if(typeof renderAvatarBox === 'function') renderAvatarBox(document.getElementById('regAvatarPreview'),''); }catch(_){ }
+      try{ if(typeof switchAuth === 'function') switchAuth('login'); }catch(_){ }
+      showToast('تم إرسال طلب الاشتراك إلى الإدارة بنجاح');
     }catch(err){
-      console.error('subscription create failed',err);
-      say('تعذر إرسال طلب الاشتراك: '+(err.code||err.message||'تحقق من الاتصال'));
-    }finally{ if(btn){btn.disabled=false;btn.innerHTML=old;} }
+      console.error('LINKO register Firestore error:', err);
+      showToast('تعذر إرسال طلب الاشتراك: تحقق من الإنترنت وقواعد Firestore');
+    }
+    return false;
   };
+
   window.login = async function(e){
-    e.preventDefault();
-    const fullName=(byId('loginUsername')?.value||'').trim();
-    const pass=(byId('loginPassword')?.value||'').trim();
-    if(!fullName||!pass){say('اكتب الاسم الكامل والرمز');return;}
-    const btn=e.submitter || e.target.querySelector('button[type="submit"]');
-    const old=btn?btn.innerHTML:''; if(btn){btn.disabled=true;btn.innerHTML='جاري التحقق...';}
+    if(e) e.preventDefault();
+    const fullName = (document.getElementById('loginUsername')?.value || '').trim();
+    const password = (document.getElementById('loginPassword')?.value || '').trim();
+    if(!fullName || !password){ showToast('أدخل الاسم والرمز'); return false; }
     try{
-      const {fs,db}=await ready();
-      const q=fs.query(fs.collection(db,'members'),fs.where('name','==',fullName));
-      const snap=await fs.getDocs(q);
-      let user=null;
-      snap.forEach(d=>{const x=d.data()||{}; if(!user && String(x.password||x.code||'')===pass && (x.status==='active'||x.status==='مفعل')) user={id:d.id,...x};});
-      if(!user){say('الاسم الكامل أو الرمز غير صحيح أو لم تتم الموافقة بعد');return;}
-      currentUser={
-        name:user.name||fullName,
-        username:user.username||user.name||fullName,
-        password:user.password||user.code||pass,
-        phone:user.phone||'',
-        address:user.address||user.area||'',
-        balance:+user.balance||0,
-        status:user.status||'active',
-        avatar:user.avatar||user.img||''
-      };
-      if(typeof fillUser==='function') fillUser();
-      if(typeof go==='function') go('homePage');
-      say('تم تسجيل الدخول بنجاح');
-    }catch(err){
-      console.error('member login failed',err);
-      say('تعذر تسجيل الدخول: '+(err.code||err.message||'تحقق من الاتصال'));
-    }finally{ if(btn){btn.disabled=false;btn.innerHTML=old;} }
-  };
-})();
-</script>
-
-
-
-<script id="linkoPhase2RootFinalFix">
-(function(){
-  'use strict';
-  const cfg={
-    apiKey:"AIzaSyCpx6Zn-wcRLicPAbb8srY6nYl2VeQmeWc",
-    authDomain:"souq-al-madina-al-kabeer.firebaseapp.com",
-    projectId:"souq-al-madina-al-kabeer",
-    storageBucket:"souq-al-madina-al-kabeer.firebasestorage.app",
-    messagingSenderId:"1038784782291",
-    appId:"1:1038784782291:web:c127e5ba879d5402389926"
-  };
-  let apiPromise=null;
-  let latestRequests=[];
-  let latestMembers=[];
-  let listenersStarted=false;
-
-  function toastSafe(msg){
-    try{ if(typeof window.toast==='function') window.toast(msg); else console.log('[LINKO]',msg); }catch(e){ console.log('[LINKO]',msg); }
-  }
-  function adminToast(msg){
-    try{
-      const f=document.getElementById('linkoAdminFrame');
-      const w=f&&f.contentWindow;
-      if(w&&typeof w.toast==='function') w.toast(msg); else toastSafe(msg);
-    }catch(e){ toastSafe(msg); }
-  }
-  async function api(){
-    if(apiPromise) return apiPromise;
-    apiPromise=Promise.all([
-      import('https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js')
-    ]).then(([appMod,fs])=>{
-      let app;
-      try{ app=appMod.getApps().find(a=>a.name==='[DEFAULT]') || appMod.initializeApp(cfg); }
-      catch(e){ app=appMod.getApps()[0] || appMod.initializeApp(cfg); }
-      const db=fs.getFirestore(app);
-      window.LINKO_PHASE2_FIRESTORE_READY=true;
-      return {appMod,fs,db};
-    });
-    return apiPromise;
-  }
-  function docToReq(doc){
-    const x=doc.data?doc.data():doc;
-    return {
-      id: doc.id || x.id || String(Date.now()),
-      name: x.name || '', username: x.username || x.name || '', phone: x.phone || '',
-      area: x.area || x.address || '', address: x.address || x.area || '',
-      code: x.code || x.password || '', password: x.password || x.code || '',
-      balance: Number(x.balance)||0, status: x.status || 'pending', img: x.avatar || x.img || '',
-      created: x.createdAtText || x.created || ''
-    };
-  }
-  function docToMember(doc){
-    const x=doc.data?doc.data():doc;
-    return {
-      id: doc.id || x.id || String(Date.now()),
-      name: x.name || '', username: x.username || x.name || '', phone: x.phone || '',
-      area: x.area || x.address || '', address: x.address || x.area || '',
-      code: x.code || x.password || '', password: x.password || x.code || '',
-      balance: Number(x.balance)||0, status: x.status || 'active', img: x.avatar || x.img || ''
-    };
-  }
-  function getFrameWin(){
-    const frame=document.getElementById('linkoAdminFrame');
-    try{return frame && frame.contentWindow ? frame.contentWindow : null;}catch(e){return null;}
-  }
-  function bindAdminWindow(w){
-    if(!w || !w.document) return false;
-    if(!w.state || typeof w.render!=='function') return false;
-    try{
-      w.state.requests = latestRequests.filter(r=>r.status!=='approved');
-      w.state.members = latestMembers.slice();
-      w.approveReq = async function(id){
-        const r=latestRequests.find(x=>String(x.id)===String(id)) || (w.state.requests||[]).find(x=>String(x.id)===String(id));
-        if(!r){adminToast('لم يتم العثور على الطلب');return;}
+      const q1 = query(collection(db, MEM_COL), where('name','==',fullName), where('password','==',password));
+      const snap = await getDocs(q1);
+      if(!snap.empty){
+        const docSnap = snap.docs[0];
+        const m = { id: docSnap.id, ...docSnap.data() };
+        const status = String(m.status || 'active');
+        if(status === 'blocked' || status === 'stopped' || status === 'موقوف'){
+          showToast('هذه العضوية موقوفة حالياً');
+          return false;
+        }
+        window.currentUser = {
+          id: m.id,
+          name: m.name || fullName,
+          username: m.username || m.name || fullName,
+          phone: m.phone || '',
+          address: m.address || m.area || '',
+          area: m.area || m.address || '',
+          password: m.password || password,
+          code: m.code || m.password || password,
+          balance: Number(m.balance || 0),
+          status: m.status || 'active',
+          avatar: m.avatar || m.img || ''
+        };
         try{
-          const {fs,db}=await api();
-          await fs.setDoc(fs.doc(db,'members',String(id)),{
-            name:r.name, username:r.username||r.name, phone:r.phone, address:r.address||r.area, area:r.area||r.address,
-            password:r.password||r.code, code:r.code||r.password, balance:0, status:'active', avatar:r.img||'', img:r.img||'',
-            createdAt:fs.serverTimestamp(), createdAtText:new Date().toLocaleString('ar-IQ')
-          },{merge:true});
-          await fs.updateDoc(fs.doc(db,'subscriptionRequests',String(id)),{status:'approved',approvedAt:fs.serverTimestamp(),approvedAtText:new Date().toLocaleString('ar-IQ')});
-          adminToast('تمت الموافقة ونقل العضو');
-        }catch(err){console.error(err);adminToast('تعذر الموافقة: '+(err.code||err.message));}
-      };
-      w.rejectReq = async function(id){
-        try{const {fs,db}=await api(); await fs.updateDoc(fs.doc(db,'subscriptionRequests',String(id)),{status:'rejected',rejectedAt:fs.serverTimestamp(),rejectedAtText:new Date().toLocaleString('ar-IQ')}); adminToast('تم رفض الطلب');}
-        catch(err){console.error(err);adminToast('تعذر رفض الطلب: '+(err.code||err.message));}
-      };
-      w.deleteReq = async function(id){
-        if(!w.confirm('تأكيد حذف الطلب؟')) return;
-        try{const {fs,db}=await api(); await fs.deleteDoc(fs.doc(db,'subscriptionRequests',String(id))); adminToast('تم حذف الطلب');}
-        catch(err){console.error(err);adminToast('تعذر حذف الطلب: '+(err.code||err.message));}
-      };
-      w.clearRejected = async function(){
-        const rejected=(latestRequests||[]).filter(x=>x.status==='rejected');
-        if(!rejected.length){adminToast('لا توجد طلبات مرفوضة');return;}
-        if(!w.confirm('تأكيد حذف جميع الطلبات المرفوضة؟')) return;
-        const {fs,db}=await api();
-        for(const r of rejected) await fs.deleteDoc(fs.doc(db,'subscriptionRequests',String(r.id)));
-        adminToast('تم حذف المرفوضين');
-      };
-      w.clearAllSubscriptionRequests = async function(){
-        const list=(latestRequests||[]).filter(x=>x.status!=='approved');
-        if(!list.length){adminToast('لا توجد طلبات');return;}
-        if(!w.confirm('تأكيد حذف جميع طلبات الاشتراك؟')) return;
-        const {fs,db}=await api();
-        for(const r of list) await fs.deleteDoc(fs.doc(db,'subscriptionRequests',String(r.id)));
-        adminToast('تم حذف جميع الطلبات');
-      };
-      w.render();
-      return true;
-    }catch(e){console.error('admin bind error',e);return false;}
-  }
-  function syncAdmin(){
-    const w=getFrameWin();
-    bindAdminWindow(w);
-  }
-  async function startListeners(){
-    if(listenersStarted) return;
-    listenersStarted=true;
-    try{
-      const {fs,db}=await api();
-      fs.onSnapshot(fs.query(fs.collection(db,'subscriptionRequests'),fs.orderBy('createdAtMs','desc')), snap=>{
-        latestRequests=[];
-        snap.forEach(d=>latestRequests.push(docToReq(d)));
-        syncAdmin();
-      }, err=>{console.error('subscription listener error',err); adminToast('تعذر قراءة طلبات الاشتراك: '+(err.code||err.message));});
-      fs.onSnapshot(fs.query(fs.collection(db,'members'),fs.orderBy('createdAtText','desc')), snap=>{
-        latestMembers=[];
-        snap.forEach(d=>latestMembers.push(docToMember(d)));
-        syncAdmin();
-      }, err=>{console.error('members listener error',err);});
-    }catch(e){console.error(e); toastSafe('تعذر تشغيل ربط الاشتراكات: '+(e.code||e.message));}
-  }
-  const oldOpen=window.linkoOpenAdmin;
-  window.linkoOpenAdmin=function(){
-    if(typeof oldOpen==='function') oldOpen();
-    startListeners();
-    let tries=0;
-    const t=setInterval(()=>{tries++; syncAdmin(); if(tries>20) clearInterval(t);},250);
+          const localMembers = JSON.parse(localStorage.getItem('lm_members') || '[]');
+          const without = localMembers.filter(x => String(x.name || '') !== String(window.currentUser.name || ''));
+          without.unshift(window.currentUser);
+          localStorage.setItem('lm_members', JSON.stringify(without));
+        }catch(_){ }
+        if(typeof window.fillUser === 'function') window.fillUser();
+        else if(typeof fillUser === 'function') fillUser();
+        if(typeof window.go === 'function') window.go('homePage');
+        showToast('تم تسجيل الدخول بنجاح');
+        return false;
+      }
+    }catch(err){
+      console.error('LINKO member login Firestore error:', err);
+      showToast('تعذر التحقق من العضوية عبر Firebase');
+      return false;
+    }
+    showToast('الاسم الكامل أو الرمز غير صحيح أو لم تتم الموافقة بعد');
+    return false;
   };
-  window.register = async function(e){
-    if(e && e.preventDefault) e.preventDefault();
-    const by=id=>document.getElementById(id);
-    const fullName=(by('regName')?.value||'').trim();
-    const phone=(by('regPhone')?.value||'').trim();
-    const address=(by('regAddress')?.value||'').trim();
-    const password=(by('regPassword')?.value||'').trim();
-    const terms=by('regTerms');
-    if(!fullName || !phone || !address || !password){toastSafe('أكمل بيانات الاشتراك أولاً');return;}
-    if(terms && !terms.checked){toastSafe('وافق على شروط استخدام الخدمة أولاً');return;}
-    const btn=(e&&e.submitter) || (e&&e.target&&e.target.querySelector('button[type="submit"]'));
-    const old=btn?btn.innerHTML:'';
-    if(btn){btn.disabled=true;btn.innerHTML='جاري إرسال الطلب...';}
-    try{
-      const {fs,db}=await api();
-      const ref=fs.doc(fs.collection(db,'subscriptionRequests'));
-      await fs.setDoc(ref,{
-        name:fullName, username:fullName, phone, address, area:address,
-        password, code:password, avatar:(typeof window.pendingAvatarData!=='undefined'?window.pendingAvatarData:''),
-        status:'pending', createdAt:fs.serverTimestamp(), createdAtMs:Date.now(), createdAtText:new Date().toLocaleString('ar-IQ')
-      });
-      latestRequests.unshift({id:ref.id,name:fullName,username:fullName,phone,address,area:address,password,code:password,status:'pending',created:new Date().toLocaleString('ar-IQ')});
-      syncAdmin();
-      if(e&&e.target&&typeof e.target.reset==='function') e.target.reset();
-      if(typeof window.pendingAvatarData!=='undefined') window.pendingAvatarData='';
-      if(typeof window.renderAvatarBox==='function') window.renderAvatarBox(by('regAvatarPreview'),'');
-      if(typeof window.switchAuth==='function') window.switchAuth('login');
-      toastSafe('تم إرسال طلب الاشتراك للإدارة بنجاح، انتظر الموافقة ثم ادخل بالاسم والرمز');
-    }catch(err){console.error('subscription create failed',err);toastSafe('تعذر إرسال طلب الاشتراك: '+(err.code||err.message||'تحقق من الاتصال'));}
-    finally{if(btn){btn.disabled=false;btn.innerHTML=old;}}
-  };
-  const oldLogin=window.login;
-  window.login=async function(e){
-    if(e&&e.preventDefault)e.preventDefault();
-    const by=id=>document.getElementById(id);
-    const name=(by('loginUsername')?.value||'').trim();
-    const pass=(by('loginPassword')?.value||'').trim();
-    if(!name || !pass){toastSafe('اكتب الاسم الكامل والرمز');return;}
-    try{
-      const {fs,db}=await api();
-      const q=fs.query(fs.collection(db,'members'),fs.where('name','==',name));
-      const snap=await fs.getDocs(q);
-      let found=null; snap.forEach(d=>{const m=docToMember(d); if(String(m.password)===String(pass)||String(m.code)===String(pass)) found=m;});
-      if(!found){toastSafe('الحساب غير موجود أو لم تتم الموافقة عليه بعد');return;}
-      window.currentUser=found;
-      try{localStorage.setItem('linko_market_current_user',JSON.stringify(found));}catch(x){}
-      if(typeof window.fillUser==='function') window.fillUser();
-      if(typeof window.go==='function') window.go('homePage');
-      toastSafe('أهلاً بك '+found.name);
-    }catch(err){console.error(err); if(typeof oldLogin==='function') return oldLogin(e); toastSafe('تعذر تسجيل الدخول: '+(err.code||err.message));}
-  };
-  window.addEventListener('load',()=>{startListeners(); const frame=document.getElementById('linkoAdminFrame'); if(frame) frame.addEventListener('load',()=>setTimeout(syncAdmin,300)); setInterval(syncAdmin,1200);});
-  document.addEventListener('DOMContentLoaded',()=>{startListeners();});
-})();
-</script>
 
+  function startRequestListener(){
+    if(unsubRequests) return;
+    try{
+      const qReq = query(collection(db, REQ_COL), orderBy('createdAt','desc'));
+      unsubRequests = onSnapshot(qReq, snap => {
+        lastSubError = '';
+        requestsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        refreshAllAdminFrames();
+      }, err => {
+        console.error('LINKO subscription listener error:', err);
+        lastSubError = err && err.message ? err.message : 'تعذر قراءة طلبات الاشتراك';
+        refreshAllAdminFrames();
+      });
+    }catch(err){
+      console.error('LINKO subscription listener init error:', err);
+      lastSubError = err && err.message ? err.message : 'تعذر بدء متابعة الطلبات';
+    }
+  }
+
+  onAuthStateChanged(auth, user => {
+    if(user) startRequestListener();
+  });
+
+  async function approveRequest(id){
+    const r = requestsCache.find(x => String(x.id) === String(id));
+    if(!r){ showToast('لم يتم العثور على الطلب'); return; }
+    try{
+      const memberId = 'member_' + Date.now();
+      const payload = {
+        name: r.name || '',
+        username: r.username || r.name || '',
+        phone: r.phone || '',
+        address: r.address || r.area || '',
+        area: r.area || r.address || '',
+        password: r.password || r.code || '',
+        code: r.code || r.password || '',
+        balance: 0,
+        status: 'active',
+        avatar: '',
+        img: '',
+        approvedAt: serverTimestamp(),
+        approvedText: nowText(),
+        requestId: id
+      };
+      await setDoc(doc(db, MEM_COL, memberId), payload);
+      await deleteDoc(doc(db, REQ_COL, id));
+      showToast('تمت الموافقة على العضو');
+    }catch(err){
+      console.error('LINKO approve error:', err);
+      showToast('تعذر الموافقة: تأكد من تسجيل دخول الإدارة وقواعد Firestore');
+    }
+  }
+
+  async function rejectRequest(id){
+    try{
+      await updateDoc(doc(db, REQ_COL, id), { status:'rejected', rejectedAt: serverTimestamp(), rejectedText: nowText() });
+      showToast('تم رفض الطلب');
+    }catch(err){
+      console.error('LINKO reject error:', err);
+      showToast('تعذر رفض الطلب');
+    }
+  }
+
+  async function deleteRequest(id){
+    if(!confirm('تأكيد حذف طلب الاشتراك؟')) return;
+    try{
+      await deleteDoc(doc(db, REQ_COL, id));
+      showToast('تم حذف الطلب');
+    }catch(err){
+      console.error('LINKO delete request error:', err);
+      showToast('تعذر حذف الطلب');
+    }
+  }
+
+  function requestCardHtml(r){
+    const status = String(r.status || 'pending');
+    const statusText = status === 'rejected' ? 'مرفوض' : 'بانتظار';
+    const statusClass = status === 'rejected' ? 'bad' : 'wait';
+    return `<div class="request-card" style="border:1px solid #e4e7ec;border-radius:22px;padding:14px;background:#fff;box-shadow:0 9px 24px rgba(16,24,40,.07)">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div><h3 style="font-size:17px;margin:0 0 5px;font-weight:900">${safeText(r.name || 'عضو جديد')}</h3><p style="margin:0;color:#667085;font-weight:800;line-height:1.8">الهاتف: ${safeText(r.phone || '-')}<br>العنوان: ${safeText(r.address || r.area || '-')}<br>الرمز: ${safeText(r.password || r.code || '-')}</p></div>
+        <span class="status ${statusClass}" style="border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;background:${status==='rejected'?'#fee2e2':'#fff7ed'};color:${status==='rejected'?'#991b1b':'#9a3412'}">${statusText}</span>
+      </div>
+      <small style="display:block;margin-top:8px;color:#667085;font-weight:800">${safeText(r.createdText || '')}</small>
+      <div class="actions-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        ${status !== 'rejected' ? `<button class="btn mini" onclick="window.parent.LINKO_PHASE2.approve('${safeText(r.id)}')">موافقة</button><button class="btn warn mini" onclick="window.parent.LINKO_PHASE2.reject('${safeText(r.id)}')">رفض</button>` : ''}
+        <button class="btn danger mini" onclick="window.parent.LINKO_PHASE2.remove('${safeText(r.id)}')">حذف</button>
+      </div>
+    </div>`;
+  }
+
+  function subscriptionsPanelHtml(){
+    const pendingCount = requestsCache.filter(x => String(x.status || 'pending') === 'pending').length;
+    const rejectedCount = requestsCache.filter(x => String(x.status || '') === 'rejected').length;
+    if(lastSubError){
+      return `<div class="panel"><div class="panel-head"><div><h2>طلبات الاشتراك</h2><p>حدث خطأ أثناء قراءة الطلبات من Firebase.</p></div></div><div class="empty" style="color:#991b1b;background:#fef2f2;border:1px solid #fecaca">${safeText(lastSubError)}</div></div>`;
+    }
+    return `<div class="panel"><div class="panel-head"><div><h2>طلبات الاشتراك</h2><p>طلبات الأعضاء الجديدة من صفحة التسجيل تظهر هنا مباشرة من Firestore.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><span class="status wait">بانتظار: ${pendingCount}</span><span class="status bad">مرفوض: ${rejectedCount}</span></div></div><div class="cards" style="display:grid;gap:10px">${requestsCache.length ? requestsCache.map(requestCardHtml).join('') : '<div class="empty">لا توجد طلبات اشتراك حالياً</div>'}</div></div>`;
+  }
+
+  function injectIntoFrame(frame){
+    if(!frame || !frame.contentWindow || !frame.contentDocument) return;
+    const cw = frame.contentWindow;
+    const docu = frame.contentDocument;
+    if(!docu.getElementById('linkoPhase2AdminStyle')){
+      const st = docu.createElement('style');
+      st.id = 'linkoPhase2AdminStyle';
+      st.textContent = `.status.wait{background:#fff7ed;color:#9a3412}.status.bad{background:#fee2e2;color:#991b1b}.request-card .btn{min-height:36px;border-radius:12px;padding:6px 10px;font-weight:900}.request-card .btn.warn{background:linear-gradient(135deg,#f59e0b,#b45309);color:white}.request-card .btn.danger{background:linear-gradient(135deg,#ef4444,#991b1b);color:white}`;
+      docu.head.appendChild(st);
+    }
+    cw.LINKO_PHASE2_REQUESTS = requestsCache;
+    cw.LINKO_PHASE2_RENDER_SUBSCRIPTIONS = function(){
+      const main = docu.getElementById('main');
+      if(main) main.innerHTML = subscriptionsPanelHtml();
+      const title = docu.getElementById('pageTitle');
+      const desc = docu.getElementById('pageDesc');
+      if(title) title.textContent = 'طلبات الاشتراك';
+      if(desc) desc.textContent = 'مراجعة طلبات الاشتراك الجديدة والموافقة أو الرفض.';
+      Array.from(docu.querySelectorAll('#nav button')).forEach(btn => {
+        const isSub = (btn.textContent || '').includes('طلبات الاشتراك');
+        btn.classList.toggle('active', isSub);
+      });
+    };
+    if(!cw.__LINKO_PHASE2_OPEN_PATCHED){
+      cw.__LINKO_PHASE2_OPEN_PATCHED = true;
+      const oldOpen = cw.openSec;
+      cw.openSec = function(id){
+        if(id === 'subscriptions'){
+          cw.LINKO_PHASE2_RENDER_SUBSCRIPTIONS();
+          try{ docu.getElementById('sidebar')?.classList.remove('open'); }catch(_){ }
+          return;
+        }
+        try{ if(typeof oldOpen === 'function') oldOpen(id); }
+        catch(err){
+          const main = docu.getElementById('main');
+          if(main) main.innerHTML = '<div class="panel"><h2>القسم قيد الربط</h2><p class="muted">هذا القسم سيتم ربطه في مراحله الخاصة.</p></div>';
+        }
+      };
+    }
+    const main = docu.getElementById('main');
+    const title = (docu.getElementById('pageTitle')?.textContent || '');
+    if(title.includes('طلبات الاشتراك') || (main && !main.innerHTML.trim())){
+      cw.LINKO_PHASE2_RENDER_SUBSCRIPTIONS();
+    }
+  }
+
+  function refreshAllAdminFrames(){
+    const frame = document.getElementById('linkoAdminFrame');
+    if(frame) injectIntoFrame(frame);
+  }
+
+  window.LINKO_PHASE2 = {
+    approve: approveRequest,
+    reject: rejectRequest,
+    remove: deleteRequest,
+    refresh: refreshAllAdminFrames,
+    getRequests: () => requestsCache.slice()
+  };
+
+  const oldOpenAdmin = window.linkoOpenAdmin;
+  window.linkoOpenAdmin = function(){
+    if(typeof oldOpenAdmin === 'function') oldOpenAdmin();
+    setTimeout(() => { startRequestListener(); refreshAllAdminFrames(); }, 250);
+    setTimeout(refreshAllAdminFrames, 900);
+  };
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const frame = document.getElementById('linkoAdminFrame');
+    if(frame){
+      frame.addEventListener('load', () => setTimeout(refreshAllAdminFrames, 250));
+      setTimeout(refreshAllAdminFrames, 900);
+    }
+  });
+</script>
+<!-- ===== /LINKO PHASE 2 ROOT FIX ===== -->
 </body>
 </html>
 
