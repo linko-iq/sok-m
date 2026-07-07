@@ -3235,6 +3235,158 @@ button.branch-card[data-branch="linko"] small{
 })();
 </script>
 
+
+
+<!-- ===== LINKO FINAL VISIBILITY PATCH: stronger branch glow + clear LINKO design label ===== -->
+<style id="linkoFinalVisibleGlowPatch">
+/* إضاءة أوضح وناعمة على كل إطارات الفروع */
+.branch-card{
+  position:relative!important;
+  overflow:hidden!important;
+  border:1.5px solid rgba(246,182,74,.54)!important;
+  box-shadow:
+    0 12px 28px rgba(15,23,42,.10),
+    0 0 0 1px rgba(246,182,74,.18),
+    0 0 18px rgba(246,182,74,.10)!important;
+}
+.branch-card::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  border-radius:inherit!important;
+  padding:3px!important;
+  background:linear-gradient(120deg,
+    rgba(246,182,74,.18) 0%,
+    rgba(255,214,116,.95) 18%,
+    rgba(16,185,129,.42) 38%,
+    rgba(255,255,255,.52) 52%,
+    rgba(246,182,74,.88) 72%,
+    rgba(246,182,74,.18) 100%)!important;
+  background-size:320% 320%!important;
+  animation:linkoBranchBorderGlowStrong 3.4s linear infinite!important;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0)!important;
+  -webkit-mask-composite:xor!important;
+  mask-composite:exclude!important;
+  pointer-events:none!important;
+  opacity:.95!important;
+  z-index:8!important;
+}
+@keyframes linkoBranchBorderGlowStrong{
+  0%{background-position:0% 50%;filter:brightness(1)}
+  50%{background-position:100% 50%;filter:brightness(1.18)}
+  100%{background-position:0% 50%;filter:brightness(1)}
+}
+
+/* فرع LINKO للتصاميم: النص واضح جداً في الوضع النهاري */
+.branch-card.linko-branch-card,
+button.branch-card[data-branch="linko"]{
+  background:linear-gradient(160deg,#07111f 0%,#101827 55%,#221807 100%)!important;
+  border-color:rgba(255,205,91,.95)!important;
+  box-shadow:
+    0 18px 42px rgba(15,23,42,.26),
+    0 0 0 1px rgba(255,205,91,.30),
+    0 0 28px rgba(246,182,74,.20)!important;
+}
+.branch-card.linko-branch-card .branch-img,
+button.branch-card[data-branch="linko"] .branch-img{
+  background:radial-gradient(circle at center,rgba(255,213,112,.38),rgba(15,23,42,.96) 58%)!important;
+}
+.branch-card.linko-branch-card .branch-img .mi,
+button.branch-card[data-branch="linko"] .branch-img .mi{
+  color:#ffe08a!important;
+  text-shadow:0 0 22px rgba(255,213,112,.75)!important;
+}
+.branch-card.linko-branch-card h3,
+button.branch-card[data-branch="linko"] h3{
+  color:#fff7cf!important;
+  -webkit-text-fill-color:#fff7cf!important;
+  font-weight:900!important;
+  opacity:1!important;
+  filter:none!important;
+  text-shadow:
+    0 2px 0 rgba(0,0,0,.45),
+    0 4px 14px rgba(0,0,0,.95),
+    0 0 18px rgba(255,205,91,.70)!important;
+  letter-spacing:.2px!important;
+  line-height:1.55!important;
+}
+.branch-card.linko-branch-card h3::before,
+button.branch-card[data-branch="linko"] h3::before{
+  content:"🎨 ";
+  display:inline-block;
+  margin-inline-end:4px;
+  filter:drop-shadow(0 0 8px rgba(255,205,91,.7));
+}
+.branch-card.linko-branch-card small,
+button.branch-card[data-branch="linko"] small{
+  color:#ffe27a!important;
+  -webkit-text-fill-color:#ffe27a!important;
+  font-weight:900!important;
+  opacity:1!important;
+  text-shadow:0 3px 12px rgba(0,0,0,.95),0 0 12px rgba(255,205,91,.45)!important;
+}
+.branch-card.linko-branch-card::after,
+button.branch-card[data-branch="linko"]::after{
+  content:""!important;
+  position:absolute!important;
+  inset:auto 0 0 0!important;
+  height:54%!important;
+  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.78))!important;
+  pointer-events:none!important;
+  z-index:2!important;
+}
+.branch-card.linko-branch-card .branch-img,
+.branch-card.linko-branch-card h3,
+.branch-card.linko-branch-card small,
+button.branch-card[data-branch="linko"] .branch-img,
+button.branch-card[data-branch="linko"] h3,
+button.branch-card[data-branch="linko"] small{
+  position:relative!important;
+  z-index:5!important;
+}
+body.linko-dark .branch-card::before{opacity:.82!important}
+</style>
+<script id="linkoFinalVisibleGlowScript">
+(function(){
+  function finalFixLinkoBranch(){
+    try{
+      if(Array.isArray(window.branches)){
+        const b=window.branches.find(x=>String(x.id)==='linko' || String(x.name||'').toLowerCase().includes('linko'));
+        if(b){
+          b.name='LINKO للتصاميم';
+          b.icon='design_services';
+          if(!b.count && Array.isArray(window.LINKO_SERVICES)) b.count=window.LINKO_SERVICES.length;
+        }
+      }
+      document.querySelectorAll('.branch-card').forEach(card=>{
+        const txt=(card.textContent||'').toLowerCase();
+        const click=String(card.getAttribute('onclick')||'').toLowerCase();
+        if(click.includes('linko') || txt.includes('linko') || txt.includes('للتصاميم')){
+          card.classList.add('linko-branch-card');
+          card.setAttribute('data-branch','linko');
+          const h=card.querySelector('h3');
+          if(h) h.textContent='LINKO للتصاميم';
+          const sm=card.querySelector('small');
+          if(sm) sm.textContent='15 منتج وخدمة';
+          const ico=card.querySelector('.branch-img .mi');
+          if(ico) ico.textContent='design_services';
+        }
+      });
+    }catch(e){}
+  }
+  const oldRenderBranchesFinal=window.renderBranches;
+  window.renderBranches=function(){
+    if(typeof oldRenderBranchesFinal==='function') oldRenderBranchesFinal.apply(this,arguments);
+    setTimeout(finalFixLinkoBranch,0);
+    setTimeout(finalFixLinkoBranch,120);
+  };
+  window.addEventListener('load',()=>{finalFixLinkoBranch();setTimeout(finalFixLinkoBranch,250);setTimeout(finalFixLinkoBranch,900)});
+  document.addEventListener('DOMContentLoaded',()=>{finalFixLinkoBranch();setTimeout(finalFixLinkoBranch,250)});
+  setInterval(finalFixLinkoBranch,1000);
+})();
+</script>
+<!-- ===== /LINKO FINAL VISIBILITY PATCH ===== -->
+
 </body>
 </html>
 <!-- ===== LINKO SAFE PATCH: home delivery, assistant stability, instant cart feedback, clearer chat ===== -->
