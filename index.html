@@ -3513,6 +3513,170 @@ body.linko-dark .branch-card::before{opacity:.82!important}
 </script>
 <!-- ===== /LINKO FINAL VISIBILITY PATCH ===== -->
 
+<!-- ===== LINKO PATCH: admin image controls + smooth navigation ===== -->
+<script id="linkoAdminImageNavFix">
+(function(){
+  function injectIntoAdmin(){
+    var frame=document.getElementById('linkoAdminFrame');
+    if(!frame || !frame.contentWindow || !frame.contentDocument) return false;
+    var d=frame.contentDocument;
+    if(!d.body) return false;
+    if(d.getElementById('linko-inner-image-nav-fix')) return true;
+    var s=d.createElement('script');
+    s.id='linko-inner-image-nav-fix';
+    s.textContent = `
+(function(){
+  if(window.__linkoImageNavFixed) return;
+  window.__linkoImageNavFixed=true;
+  var css=document.createElement('style');
+  css.textContent=\`
+    html{scroll-behavior:auto!important}
+    .section,.panel,.kpi,.cards>*,.product-card,.member-card,.request-card,.branch-card,.log{animation:none!important}
+    .btn,.input,select,textarea,.status,.panel,.kpi,.product-card,.member-card,.request-card,.branch-card,.log{transition:background .12s ease,border-color .12s ease,box-shadow .12s ease!important}
+    .nav button{transition:background .10s ease,color .10s ease!important;contain:paint}
+    #main{contain:layout paint;content-visibility:auto;min-height:360px}
+    .image-fit-controls.linko-advanced{display:grid!important;grid-template-columns:1fr;gap:8px;margin-top:10px;padding:10px;border-radius:16px;background:#f8fafc;border:1px solid #e4e7ec}
+    .image-fit-controls.linko-advanced label{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:900;color:#344054;margin:0!important}
+    .image-fit-controls.linko-advanced input[type=range]{width:100%;accent-color:#0f8a55}
+    body.theme-dark .image-fit-controls.linko-advanced{background:#101827;border-color:#263244}
+    body.theme-dark .image-fit-controls.linko-advanced label{color:#e2e8f0}
+    .admin-fit-preview img{transform-origin:center center!important;will-change:transform,width,height}
+  \`;
+  document.head.appendChild(css);
+
+  function byId(id){return document.getElementById(id)}
+  window.linkoApplyImageControl=function(prefix,imgId){
+    var img=byId(imgId); if(!img) return;
+    var w=+(byId(prefix+'ImgW')?.value||100), h=+(byId(prefix+'ImgH')?.value||100);
+    var x=+(byId(prefix+'ImgX')?.value||0), y=+(byId(prefix+'ImgY')?.value||0), z=+(byId(prefix+'ImgZ')?.value||100);
+    [['W',w,'%'],['H',h,'%'],['X',x,'%'],['Y',y,'%'],['Z',z,'%']].forEach(function(a){var el=byId(prefix+'Img'+a[0]+'Val'); if(el) el.textContent=a[1]+a[2];});
+    img.style.width=w+'%';
+    img.style.height=h+'%';
+    img.style.objectFit='contain';
+    img.style.objectPosition='center center';
+    img.style.background='#fff';
+    img.style.transform='translate('+x+'%,'+y+'%) scale('+(z/100)+')';
+  };
+  window.updateImageFit=function(imgId,wId,hId,wLabelId,hLabelId){
+    var prefix=String(wId||'').replace(/ImgW$/,'');
+    if(prefix && byId(prefix+'ImgX')){ window.linkoApplyImageControl(prefix,imgId); return; }
+    var img=byId(imgId), w=byId(wId), h=byId(hId);
+    if(wLabelId&&byId(wLabelId))byId(wLabelId).textContent=(w?.value||100)+'%';
+    if(hLabelId&&byId(hLabelId))byId(hLabelId).textContent=(h?.value||100)+'%';
+    if(img){img.style.width=(w?.value||100)+'%';img.style.height=(h?.value||100)+'%';img.style.objectFit='contain';img.style.objectPosition='center';img.style.background='#fff';}
+  };
+  function makeSlider(prefix,key,label,min,max,val){
+    return '<label>'+label+' <span id="'+prefix+'Img'+key+'Val">'+val+'%</span></label><input id="'+prefix+'Img'+key+'" type="range" min="'+min+'" max="'+max+'" value="'+val+'">';
+  }
+  function addAdvancedControls(prefix,imgId,values){
+    var base=byId(prefix+'ImgW'); if(!base||byId(prefix+'ImgX')) return;
+    var box=base.closest('.image-fit-controls'); if(!box) return;
+    box.classList.add('linko-advanced');
+    box.insertAdjacentHTML('beforeend',
+      makeSlider(prefix,'X','تحريك يمين / يسار',-60,60,values.imgX??0)+
+      makeSlider(prefix,'Y','تحريك أعلى / أسفل',-60,60,values.imgY??0)+
+      makeSlider(prefix,'Z','تكبير الصورة',70,170,values.imgZ??100)
+    );
+    ['W','H','X','Y','Z'].forEach(function(k){ var el=byId(prefix+'Img'+k); if(el) el.addEventListener('input',function(){window.linkoApplyImageControl(prefix,imgId);},{passive:true}); });
+    setTimeout(function(){window.linkoApplyImageControl(prefix,imgId)},30);
+  }
+  var oldOpenProduct=window.openProduct;
+  if(typeof oldOpenProduct==='function'){
+    window.openProduct=function(id){
+      var item=id?(state.products||[]).find(function(x){return x.id===id})||{}:{};
+      oldOpenProduct.apply(this,arguments);
+      setTimeout(function(){ addAdvancedControls('p','pImgPreview',item); },80);
+      setTimeout(function(){ addAdvancedControls('p','pImgPreview',item); },220);
+    };
+  }
+  var oldOpenBranch=window.openBranch;
+  if(typeof oldOpenBranch==='function'){
+    window.openBranch=function(id){
+      var item=id?(state.branches||[]).find(function(x){return x.id===id})||{}:{};
+      oldOpenBranch.apply(this,arguments);
+      setTimeout(function(){ addAdvancedControls('b','bImgPreview',item); },80);
+      setTimeout(function(){ addAdvancedControls('b','bImgPreview',item); },220);
+    };
+  }
+  if(typeof window.saveProduct==='function'){
+    window.saveProduct=function(id){
+      var data={
+        name:byId('pName')?.value.trim()||'',
+        cat:byId('pCat')?.value.trim()||'',
+        branch:byId('pBranch')?.value.trim()||'كل الفروع',
+        status:byId('pStatus')?.value||'available',
+        badge:byId('pBadge')?.value||'',
+        img:byId('pImg')?.value||'',
+        imgW:+(byId('pImgW')?.value||100),imgH:+(byId('pImgH')?.value||100),
+        imgX:+(byId('pImgX')?.value||0),imgY:+(byId('pImgY')?.value||0),imgZ:+(byId('pImgZ')?.value||100)
+      };
+      if(!data.name){toast('اكتب اسم المنتج');return}
+      if(id){Object.assign(state.products.find(function(x){return x.id===id}),data);log('تعديل منتج','تم تعديل '+data.name)}
+      else{state.products.unshift({id:Date.now(),...data});log('إضافة منتج','تم إضافة '+data.name)}
+      save();closeModal();toast('تم حفظ المنتج');render();
+    };
+  }
+  if(typeof window.saveBranch==='function'){
+    window.saveBranch=function(id){
+      var data={
+        name:byId('bName')?.value||'',area:byId('bArea')?.value||'',order:+(byId('bOrder')?.value||((state.branches||[]).length+1)),status:byId('bStatus')?.value||'active',img:byId('bImg')?.value||'',
+        imgW:+(byId('bImgW')?.value||100),imgH:+(byId('bImgH')?.value||100),
+        imgX:+(byId('bImgX')?.value||0),imgY:+(byId('bImgY')?.value||0),imgZ:+(byId('bImgZ')?.value||100)
+      };
+      if(!data.name){toast('اكتب اسم الفرع');return}
+      if(id){Object.assign(state.branches.find(function(x){return x.id===id}),data);log('تعديل فرع','تم تعديل '+data.name)}
+      else{state.branches.unshift({id:Date.now(),...data});log('إضافة فرع','تم إضافة '+data.name)}
+      save();closeModal();toast('تم حفظ الفرع');render();
+    };
+  }
+  var oldUpload=window.handleProductImageUpload;
+  if(typeof oldUpload==='function'){
+    window.handleProductImageUpload=function(ev){
+      oldUpload.apply(this,arguments);
+      setTimeout(function(){ addAdvancedControls('p','pImgPreview',{}); window.linkoApplyImageControl('p','pImgPreview'); },170);
+    };
+  }
+  var oldCompact=window.handleCompactImageUpload;
+  if(typeof oldCompact==='function'){
+    window.handleCompactImageUpload=function(ev,inputId,boxId,placeholder){
+      oldCompact.apply(this,arguments);
+      setTimeout(function(){
+        if(inputId==='bImg'){
+          var img=document.querySelector('#bImgPreviewBox img'); if(img) img.id='bImgPreview';
+          addAdvancedControls('b','bImgPreview',{}); window.linkoApplyImageControl('b','bImgPreview');
+        }
+      },170);
+    };
+  }
+  var navLock=false, oldOpenSec=window.openSec;
+  if(typeof oldOpenSec==='function'){
+    window.openSec=function(id){
+      if(navLock || id===active) return;
+      navLock=true;
+      var s=sections.find(function(x){return x[0]===id});
+      active=id;
+      var side=byId('sidebar'); if(side) side.classList.remove('open');
+      if(s){byId('pageTitle').textContent=s[2];byId('pageDesc').textContent=s[3];}
+      requestAnimationFrame(function(){render(); setTimeout(function(){navLock=false;},90);});
+    };
+  }
+})();`;
+    d.body.appendChild(s);
+    return true;
+  }
+  function boot(){
+    injectIntoAdmin();
+    var frame=document.getElementById('linkoAdminFrame');
+    if(frame && !frame.__linkoFixLoad){frame.__linkoFixLoad=true; frame.addEventListener('load',injectIntoAdmin);}
+  }
+  document.addEventListener('DOMContentLoaded',boot);
+  setTimeout(boot,300); setTimeout(boot,1000); setTimeout(boot,2000);
+  var oldOpen=window.linkoOpenAdmin;
+  window.linkoOpenAdmin=function(){ if(typeof oldOpen==='function') oldOpen(); setTimeout(boot,80); setTimeout(boot,400); };
+})();
+</script>
+<!-- ===== /LINKO PATCH: admin image controls + smooth navigation ===== -->
+
 </body>
 </html>
 <!-- ===== LINKO SAFE PATCH: home delivery, assistant stability, instant cart feedback, clearer chat ===== -->
